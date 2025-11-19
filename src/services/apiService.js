@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
 const getApiBaseUrl = () => {
   // Development mode
   if (__DEV__) {
-    return 'https://xxxxx.ngrok-free.app/api';  // Ngrok URL'inizi buraya yapıştırın
+    return 'https://diagenetic-berry-pompously.ngrok-free.dev/api';  // Ngrok URL'inizi buraya yapıştırın (sonunda /api olmalı!)
   }
   
   // Production mode
@@ -36,6 +36,37 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    console.log('🌐 API Request:', config.method?.toUpperCase(), config.baseURL + config.url);
+    return config;
+  },
+  (error) => {
+    console.error('❌ API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for debugging
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ API Response:', response.status, response.config.url);
+    return response;
+  },
+  (error) => {
+    console.error('❌ API Response Error:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+      message: error.message,
+    });
+    return Promise.reject(error);
+  }
+);
 
 // Scan Receipt
 export const scanReceipt = async (imageUri) => {
@@ -130,6 +161,13 @@ export const scanProduct = async (imageUri) => {
     return response.data;
   } catch (error) {
     console.error('Error scanning product:', error);
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+    });
     // Return dummy data if API fails
     return {
       success: true,

@@ -1,4 +1,5 @@
-// Google Cloud Vision API service
+// Vision API service
+// Supports: Google Cloud Vision API and Azure Computer Vision API
 // For OCR, barcode recognition, and image labeling
 
 const axios = require('axios');
@@ -6,9 +7,21 @@ const axios = require('axios');
 let visionClient = null;
 let apiKey = null;
 let useRestApi = false;
+let useAzureVision = false;
+let azureKey = null;
+let azureEndpoint = null;
 
 // Initialize Vision client (optional - only if API key is provided)
 const initializeVision = () => {
+  // Try Azure Computer Vision first (free tier, no billing required)
+  if (process.env.AZURE_COMPUTER_VISION_KEY && process.env.AZURE_COMPUTER_VISION_ENDPOINT) {
+    azureKey = process.env.AZURE_COMPUTER_VISION_KEY;
+    azureEndpoint = process.env.AZURE_COMPUTER_VISION_ENDPOINT;
+    useAzureVision = true;
+    console.log('✅ Azure Computer Vision initialized (5,000 free requests/month)');
+    return;
+  }
+
   // Try to initialize with service account key file first
   if (process.env.GOOGLE_CLOUD_VISION_KEY_FILE) {
     try {
@@ -32,8 +45,9 @@ const initializeVision = () => {
   }
 
   // If neither is configured, use dummy data
-  if (!visionClient && !apiKey) {
-    console.log('ℹ️  Google Cloud Vision not configured - using dummy data');
+  if (!visionClient && !apiKey && !useAzureVision) {
+    console.log('ℹ️  No Vision API configured - using dummy data');
+    console.log('💡 Tip: Add AZURE_COMPUTER_VISION_KEY for free vision API (5,000 requests/month)');
   }
 };
 
@@ -161,9 +175,53 @@ const detectBarcode = async (imageBuffer) => {
 
 // Product label detection (for product recognition)
 const detectProductLabels = async (imageBuffer) => {
-  // Use REST API if API key is provided
+  // Try Azure Computer Vision first (free tier, no billing required)
+  if (useAzureVision && azureKey && azureEndpoint) {
+    try {
+      console.log('🔍 Calling Azure Computer Vision API for label detection...');
+      const response = await axios.post(
+        `${azureEndpoint}vision/v3.2/analyze?visualFeatures=Tags,Description&language=en`,
+        imageBuffer, // Send binary data directly
+        {
+          headers: {
+            'Ocp-Apim-Subscription-Key': azureKey,
+            'Content-Type': 'application/octet-stream',
+          },
+        }
+      );
+      
+      // Azure returns tags and description
+      const tags = response.data.tags || [];
+      const description = response.data.description?.tags || [];
+      
+      // Combine tags and description tags
+      const allLabels = [
+        ...tags.map(tag => ({ description: tag.name, score: tag.confidence })),
+        ...description.map(tag => ({ description: tag, score: 0.8 })),
+      ];
+      
+      if (allLabels.length > 0) {
+        console.log('✅ Azure Vision API returned', allLabels.length, 'labels:', allLabels.map(l => l.description).join(', '));
+        return allLabels.slice(0, 10); // Return top 10
+      } else {
+        console.log('⚠️ Azure Vision API returned no labels');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error in label detection (Azure Vision):', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+      });
+      return null;
+    }
+  }
+
+  // Use Google Cloud Vision REST API if API key is provided
   if (useRestApi && apiKey) {
     try {
+      console.log('🔍 Calling Google Vision API for label detection...');
       const base64Image = imageBuffer.toString('base64');
       const response = await axios.post(
         `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
@@ -188,17 +246,24 @@ const detectProductLabels = async (imageBuffer) => {
           },
         }
       );
-
       const labels = response.data.responses[0]?.labelAnnotations;
       if (labels && labels.length > 0) {
+        console.log('✅ Vision API returned', labels.length, 'labels:', labels.map(l => l.description).join(', '));
         return labels.map(label => ({
           description: label.description,
           score: label.score,
         }));
+      } else {
+        console.log('⚠️ Vision API returned no labels');
+        return null;
       }
-      return null;
     } catch (error) {
-      console.error('Error in label detection (REST API):', error.response?.data || error.message);
+      console.error('❌ Error in label detection (REST API):', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+      });
       return null;
     }
   }

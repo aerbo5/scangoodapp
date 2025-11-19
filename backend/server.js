@@ -11,13 +11,13 @@ const storeService = require('./services/storeService');
 const productSearchService = require('./services/productSearchService');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Initialize Vision service
 visionService.initializeVision();
 
 // Middleware
-// CORS configuration - Allow Netlify and local development
+// CORS configuration - Allow Netlify, local development, and ngrok
 app.use(cors({
   origin: [
     'http://localhost:8081',
@@ -26,6 +26,9 @@ app.use(cors({
     /\.netlify\.app$/,  // Allow all Netlify subdomains
     /\.railway\.app$/,  // Allow Railway deployments
     /\.render\.com$/,   // Allow Render deployments
+    /\.ngrok-free\.app$/,  // Allow ngrok free URLs
+    /\.ngrok\.io$/,        // Allow ngrok.io URLs
+    /\.ngrok\.app$/,       // Allow ngrok.app URLs
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -159,16 +162,69 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
 
     // Try image recognition if image is provided
     if (req.file && req.file.buffer) {
+      console.log('📸 Processing image, size:', req.file.buffer.length, 'bytes');
       labels = await visionService.detectProductLabels(req.file.buffer);
       if (labels && labels.length > 0) {
-        product = productService.findProductByLabels(labels);
-        // Get product name from labels for internet search
-        productName = labels[0].description || labels.map(l => l.description).join(' ');
+        console.log('✅ Labels detected:', labels.map(l => l.description).join(', '));
+        
+        // Get product name from labels for internet search (use most relevant label)
+        // Prefer specific product names over generic terms
+        const specificLabels = labels.filter(l => 
+          !['bottle', 'liquid', 'fluid', 'drinkware', 'product', 'object'].includes(l.description.toLowerCase())
+        );
+        productName = specificLabels.length > 0 
+          ? specificLabels[0].description 
+          : labels[0].description;
+        
+        console.log('📦 Product name for search:', productName);
+        
+        // Try to find product in database first
+        const foundProduct = productService.findProductByLabels(labels);
+        
+        // If product found in database and it's not the fallback avocado, use it
+        if (foundProduct && foundProduct.name !== 'Produce Avocado') {
+          console.log('✅ Product found in database:', foundProduct.name);
+          product = foundProduct;
+          productName = product.name; // Use database product name
+        } else {
+          // Create dynamic product from Vision API labels
+          console.log('💡 Creating dynamic product from Vision API labels');
+          product = {
+            name: productName, // Use the productName we extracted from labels
+            size: '1 Each',
+            category: labels[0].description,
+            labels: labels.map(l => l.description),
+            stores: [
+              {
+                name: 'Target',
+                address: '1045 5th Street Unit 201, Miami, FL',
+                price: 0.75,
+                distance: '8.4 mi',
+              },
+              {
+                name: 'Whole Foods',
+                address: '6701 Red Road, Miami, FL',
+                price: 1.25,
+                distance: '1.9 mi',
+              },
+              {
+                name: 'Walmart',
+                address: '11253 Pines Blvd, Hollywood, FL',
+                price: 0.79,
+                distance: '5.2 mi',
+              },
+            ],
+          };
+          // productName is already set from labels above, don't override it
+        }
+      } else {
+        console.log('⚠️ No labels detected, using fallback');
       }
     }
 
-    // Fallback to dummy product if recognition fails
-    if (!product) {
+    // Fallback to dummy product only if no labels detected
+    if (!product && (!labels || labels.length === 0)) {
+      console.log('⚠️ Using fallback dummy product');
       product = productService.lookupProductByBarcode('1234567890123');
       if (!product) {
         product = {
@@ -195,13 +251,11 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
             },
           ],
         };
-        productName = product.name;
-      } else {
-        productName = product.name;
       }
-    } else {
-      productName = product.name || productName;
+      productName = product.name;
     }
+    // Note: If product was created from labels above, productName is already set correctly
+    // Don't override it here!
 
     // Search for product links on internet
     let productLinks = [];

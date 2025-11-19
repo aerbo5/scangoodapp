@@ -175,6 +175,7 @@ export default function App() {
           setSelectedProduct({
             ...result.product,
             image: imageUri,
+            productLinks: result.productLinks || [], // Add product links from backend
           });
           showScreen('productDetails');
         }
