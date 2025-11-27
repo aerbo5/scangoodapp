@@ -1,7 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import en from '../locales/en.json';
-import es from '../locales/es.json';
+
+// Import JSON files - use require for better compatibility with Metro bundler
+const en = require('../locales/en.json');
+const es = require('../locales/es.json');
 
 const LanguageContext = createContext();
 
