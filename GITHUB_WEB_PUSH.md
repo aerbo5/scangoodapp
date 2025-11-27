@@ -81,3 +81,4 @@ git push origin main
 
 GitHub web arayüzü küçük değişiklikler için daha kolay ve hızlıdır. Büyük değişiklikler için terminal kullanın.
 
+

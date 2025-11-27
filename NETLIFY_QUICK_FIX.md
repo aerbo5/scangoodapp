@@ -72,3 +72,4 @@ Eğer hala hata alırsanız:
 - ✅ `web-build` klasörü oluşturulur
 - ✅ Deploy başarılı olur!
 
+

@@ -124,3 +124,4 @@ Backend'te CORS ayarlarını kontrol edin (`backend/server.js`).
 
 Bu adımları takip ederek sorunu çözebilirsiniz!
 
+

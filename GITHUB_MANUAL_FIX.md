@@ -67,3 +67,4 @@ Bu şekilde `package.json`'a script eklemeden direkt komutu çalıştırabilirsi
 4. Commit edin
 5. Netlify deploy otomatik başlayacak!
 
+

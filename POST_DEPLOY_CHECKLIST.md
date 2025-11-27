@@ -104,3 +104,4 @@ Eğer CORS hatası alıyorsanız:
 
 Uygulamanız canlıda! 🎉
 
+

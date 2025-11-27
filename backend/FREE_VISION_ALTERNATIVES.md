@@ -206,3 +206,4 @@ Eğer hiçbir servis kullanmak istemiyorsanız:
 
 Hangi servisi kullanmak istersiniz? Azure entegrasyonu için kod hazırlayabilirim!
 
+

@@ -7,8 +7,29 @@ import { useLanguage } from '../context/LanguageContext';
 const StoreDetailsScreen = ({ store, scannedItems, onNavigate, fadeAnim }) => {
   const { t } = useLanguage();
 
+  // If store is not provided, show error and allow going back
+  if (!store) {
+    return (
+      <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
+        <View style={styles.detailsContainer}>
+          <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('compare')}>
+            <Text style={styles.backButtonText}>{t('common.back')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.noItemsText}>Store information not available</Text>
+        </View>
+      </Animated.View>
+    );
+  }
+
   // Generate product URL based on store name
+  // Use specific link from backend if available, otherwise use general search
   const getProductUrl = (item, storeName) => {
+    // If backend provided a specific link, use it (most accurate)
+    if (item.link && item.link.trim().length > 0) {
+      return item.link;
+    }
+    
+    // Fallback: Generate general search URL based on store name
     const productName = encodeURIComponent(item.name.toLowerCase().replace(/\s+/g, '-'));
     const storeUrls = {
       'Target': `https://www.target.com/s?searchTerm=${productName}`,
@@ -22,6 +43,7 @@ const StoreDetailsScreen = ({ store, scannedItems, onNavigate, fadeAnim }) => {
   const handleOpenProductLink = async (item) => {
     try {
       const url = getProductUrl(item, store.name);
+      console.log('🔗 Opening product link:', url);
       const supported = await Linking.canOpenURL(url);
       if (supported) {
         await Linking.openURL(url);
@@ -29,6 +51,7 @@ const StoreDetailsScreen = ({ store, scannedItems, onNavigate, fadeAnim }) => {
         Alert.alert('Error', 'Cannot open this URL');
       }
     } catch (error) {
+      console.error('❌ Error opening product link:', error);
       Alert.alert('Error', 'Failed to open product link');
     }
   };
@@ -55,7 +78,11 @@ const StoreDetailsScreen = ({ store, scannedItems, onNavigate, fadeAnim }) => {
 
           <View style={styles.itemsSection}>
             <Text style={styles.sectionTitle}>Items at {store.name}</Text>
-            {scannedItems && scannedItems.map((item, index) => (
+            <View style={styles.totalSection}>
+              <Text style={styles.totalLabel}>Total:</Text>
+              <Text style={styles.totalAmount}>${(store.total || 0).toFixed(2)}</Text>
+            </View>
+            {scannedItems && scannedItems.length > 0 ? scannedItems.map((item, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.itemCard}
@@ -66,13 +93,21 @@ const StoreDetailsScreen = ({ store, scannedItems, onNavigate, fadeAnim }) => {
                   {item.details && (
                     <Text style={styles.itemDetails}>{item.details}</Text>
                   )}
+                  {item.isSimilar && (
+                    <Text style={styles.similarBadge}>🔍 Similar Product</Text>
+                  )}
                 </View>
                 <View style={styles.itemPriceContainer}>
-                  <Text style={styles.itemPrice}>${(item.price || item.targetPrice || 0).toFixed(2)}</Text>
-                  <Text style={styles.openLinkText}>View on {store.name} →</Text>
+                  <Text style={styles.itemPrice}>${(item.price || 0).toFixed(2)}</Text>
+                  {item.quantity > 1 && (
+                    <Text style={styles.itemQuantity}>x{item.quantity}</Text>
+                  )}
+                  <Text style={styles.openLinkText}>View →</Text>
                 </View>
               </TouchableOpacity>
-            ))}
+            )) : (
+              <Text style={styles.noItemsText}>No items found for this store</Text>
+            )}
           </View>
 
           <View style={styles.actionButtons}>
@@ -209,10 +244,48 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: Spacing.xs,
   },
+  itemQuantity: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
   openLinkText: {
     ...Typography.body,
     fontSize: 12,
     color: Colors.primary,
+  },
+  similarBadge: {
+    fontSize: 11,
+    color: Colors.primary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  totalSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.md,
+    backgroundColor: Colors.backgroundLight,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  totalAmount: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  noItemsText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    padding: Spacing.lg,
   },
   actionButtons: {
     marginTop: Spacing.lg,
@@ -240,6 +313,7 @@ const styles = StyleSheet.create({
 });
 
 export default StoreDetailsScreen;
+
 
 
 

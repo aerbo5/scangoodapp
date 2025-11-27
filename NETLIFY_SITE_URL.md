@@ -60,3 +60,4 @@ Site URL'inizi bulduktan sonra:
 - Backend URL'ini environment variables'a ekleyin
 - Custom domain ekleyebilirsiniz (opsiyonel)
 
+

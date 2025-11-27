@@ -91,3 +91,4 @@ Ngrok ile:
 - ✅ Mobilde test edebilirsiniz
 - ✅ Gerçek API sonuçları alabilirsiniz
 
+

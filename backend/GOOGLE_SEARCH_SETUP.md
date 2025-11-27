@@ -127,3 +127,4 @@ Artık:
 - ✅ Internetten ürün linklerini bulabilirsiniz (Amazon, Target, Walmart, Google Shopping)
 - ✅ Kullanıcılar direkt ürün sayfalarına gidebilir!
 
+

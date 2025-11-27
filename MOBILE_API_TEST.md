@@ -260,3 +260,4 @@ API key'ler yoksa:
 - `NGROK_SETUP.md` - Ngrok kurulum rehberi
 - `backend/GOOGLE_SEARCH_SETUP.md` - Google Search API kurulumu
 
+

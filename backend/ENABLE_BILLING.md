@@ -119,3 +119,4 @@ Billing etkinleştirildikten sonra backend loglarında şunu göreceksiniz:
 2. **Alarm ayarlayın** → Limit yaklaştığında email alın
 3. **API kullanımını izleyin** → "APIs & Services" > "Dashboard" bölümünden
 
+

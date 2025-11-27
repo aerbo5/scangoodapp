@@ -136,3 +136,4 @@ Frontend başlatıldıktan sonra:
 - ✅ Kamera ile görüntü çekebileceksiniz
 - ✅ Gerçek sonuçlar alacaksınız!
 
+

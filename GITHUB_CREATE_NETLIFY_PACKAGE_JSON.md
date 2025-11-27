@@ -65,3 +65,4 @@ pricecheck-/
 - [ ] `netlify/functions/package.json` var mı? (Netlify Functions klasöründe)
 - [ ] `netlify.toml` güncellendi mi?
 
+

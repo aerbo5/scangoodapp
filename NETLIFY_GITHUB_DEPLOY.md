@@ -98,3 +98,4 @@ Environment variables ekledikten sonra:
 
 Deploy tamamlandığında site canlıda olacak! 🎉
 
+

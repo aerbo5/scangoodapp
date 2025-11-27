@@ -50,10 +50,11 @@ const CameraScreen = ({
   };
 
   const handleConfirmScan = async () => {
-    // Kullanıcı Continue'ya bastı, resmi analiz et
+    // Kullanıcı Continue'ya bastı, direkt analiz et (TypeModal atlandı)
     if (capturedImage) {
-      // Çekilen resmi onCapture'a gönder
-      await onCapture(capturedImage);
+      // Direkt resmi analiz et (type olmadan)
+      // OCR ve Vision API ürün adını bulacak
+      await onCapture(capturedImage, '');
       setHasScanned(false);
       setCapturedImage(null);
     }

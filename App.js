@@ -33,6 +33,7 @@ import {
   AboutScreen,
   PrivacyScreen,
   TermsScreen,
+  HistoryScreen,
 } from './src/screens';
 
 // Context
@@ -42,7 +43,9 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { calculateTotal, getSavings } from './src/utils/helpers';
 
 // API Services
-import { scanReceipt, scanBarcode, scanProduct } from './src/services/apiService';
+import { scanReceipt, scanBarcode, scanProduct, compareReceiptPrices, compareProductPrices } from './src/services/apiService';
+// History Service
+import { saveReceiptToHistory, getReceiptHistory } from './src/services/historyService';
 
 // Constants
 import { Colors } from './src/constants';
@@ -52,35 +55,15 @@ export default function App() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [scanMode, setScanMode] = useState('product');
-  const [scannedItems, setScannedItems] = useState([
-    {
-      name: "SB Ray's BBQ Sauce",
-      details: '18 FL Oz - Sweet Baby Ray\'s',
-      price: 3.99,
-      targetPrice: 2.99,
-    },
-    {
-      name: 'Produce Avocado',
-      details: '1 Each - Fresh produce',
-      price: 1.25,
-      targetPrice: 1.24,
-    },
-    {
-      name: 'Tomatoes',
-      details: '0.73 lbs@ $1.99/lb',
-      price: 1.45,
-      targetPrice: 3.05,
-    },
-    { name: 'HYDRANGEA CB', details: '', price: 5.0, targetPrice: 3.6 },
-    {
-      name: 'Picanha',
-      details: '3.02 lbs @ $6.99/lb',
-      price: 21.11,
-      targetPrice: 19.11,
-    },
-  ]);
+  // Start with empty list - items will be added from real API calls
+  const [scannedItems, setScannedItems] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [storeDetailsData, setStoreDetailsData] = useState(null);
+  const [priceComparisonData, setPriceComparisonData] = useState(null);
+  const [isComparingPrices, setIsComparingPrices] = useState(false);
+  const [receiptHistory, setReceiptHistory] = useState([]);
+  const [selectedItemForCompare, setSelectedItemForCompare] = useState(null);
+  const [originalReceiptStore, setOriginalReceiptStore] = useState(null); // Store name from receipt (e.g., "Target")
   const cameraRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -120,18 +103,25 @@ export default function App() {
     fadeAnim.setValue(0);
     setCurrentScreen(screen);
     if (mode) setScanMode(mode);
-    if (data) setStoreDetailsData(data);
+    if (data) {
+      if (screen === 'productDetails') {
+        setSelectedProduct(data);
+      } else {
+        setStoreDetailsData(data);
+      }
+    }
   };
 
-  const captureImage = async (imageUri = null) => {
+  const captureImage = async (imageUri = null, productType = '') => {
     // CameraScreen'de resim zaten çekildi ve state'te saklandı
     // Eğer imageUri parametre olarak gelirse onu kullan
     if (imageUri) {
-      processImage(imageUri);
+      // Direkt resmi analiz et (TypeModal atlandı, type olmadan)
+      processImage(imageUri, productType);
     } else if (cameraRef.current) {
       // Fallback: Eğer imageUri yoksa cameraRef'ten çek
       const photo = await cameraRef.current.takePictureAsync();
-      processImage(photo.uri);
+      processImage(photo.uri, productType);
     }
   };
 
@@ -147,72 +137,120 @@ export default function App() {
     }
   };
 
-  const processImage = async (imageUri) => {
+  const processImage = async (imageUri, productType = '') => {
     try {
       let result;
       
       if (scanMode === 'receipt') {
         // Call backend API for receipt scanning
+        console.log('🧾 Scanning receipt...');
         result = await scanReceipt(imageUri);
-        if (result.success && result.items) {
+        
+        if (result.success && result.items && result.items.length > 0) {
+          console.log(`✅ Receipt scanned successfully: ${result.items.length} items found`);
           setScannedItems(result.items);
+          
+          // Store the original receipt store name for price comparison
+          if (result.store) {
+            setOriginalReceiptStore(result.store);
+            console.log(`🏪 Original receipt store: ${result.store}`);
+          }
+          
+          // Save to history
+          const historyEntry = {
+            items: result.items,
+            total: result.youPaid || result.total,
+            store: result.store,
+            address: result.address,
+            date: result.date,
+            time: result.time,
+            youSave: result.youSave,
+          };
+          await saveReceiptToHistory(historyEntry);
+          
           showScreen('shoppingList');
-        }
-      } else if (scanMode === 'barcode') {
-        // Call backend API for barcode scanning
-        result = await scanBarcode(imageUri);
-        if (result.success && result.product) {
-          setSelectedProduct({
-            ...result.product,
-            image: imageUri,
-          });
-          showScreen('productDetails');
+        } else {
+          console.error('❌ Receipt scan failed:', result.error || 'No items found');
+          Alert.alert(
+            'Receipt Scan Failed',
+            result.error || 'Could not extract items from receipt. Please try scanning again with better lighting.',
+            [{ text: 'OK' }]
+          );
         }
       } else {
-        // Call backend API for product scanning
-        result = await scanProduct(imageUri);
+        // Unified scan: Barcode + Product (backend automatically tries barcode first, then Vision API)
+        // Call backend API for product scanning with productType
+        result = await scanProduct(imageUri, productType);
         if (result.success && result.product) {
+          // Add type to product name if provided
+          // e.g., "Drinking water" + "spring water" = "Spring water"
+          let productName = result.product.name;
+          if (productType) {
+            // Capitalize first letter of type
+            const capitalizedType = productType.charAt(0).toUpperCase() + productType.slice(1);
+            // If product name is generic (like "Drinking water"), replace with type
+            if (productName.toLowerCase().includes('water') || 
+                productName.toLowerCase().includes('drinking') ||
+                productName.toLowerCase().includes('bottle')) {
+              productName = capitalizedType;
+            } else {
+              productName = `${capitalizedType} ${productName}`.trim();
+            }
+          }
+          
+          // Handle productLinks - can be object { exactMatches: [], similarProducts: [] } or array
+          let productLinks = result.productLinks;
+          if (!productLinks) {
+            productLinks = { exactMatches: [], similarProducts: [] };
+          } else if (Array.isArray(productLinks)) {
+            // Old format: convert to new format
+            productLinks = { exactMatches: productLinks, similarProducts: [] };
+          }
+          // If it's already an object, use it as is
+          
           setSelectedProduct({
             ...result.product,
+            name: productName,
             image: imageUri,
-            productLinks: result.productLinks || [], // Add product links from backend
+            productLinks: productLinks, // Add product links from backend
+          });
+          
+          // Debug log
+          console.log('📱 Frontend - ProductLinks received:', {
+            exactMatches: productLinks.exactMatches?.length || 0,
+            similarProducts: productLinks.similarProducts?.length || 0,
+            format: Array.isArray(result.productLinks) ? 'array' : 'object'
           });
           showScreen('productDetails');
         }
       }
     } catch (error) {
       console.error('Error processing image:', error);
-      // Fallback to dummy data if API fails
-      if (scanMode === 'receipt') {
-        showScreen('shoppingList');
-      } else {
-        setSelectedProduct({
-          name: 'Produce Avocado',
-          size: '1 Each',
-          image: imageUri,
-          stores: [
-            {
-              name: 'Target',
-              address: '1045 5th Street Unit 201, Mia...',
-              price: 0.75,
-              distance: '8.4 mi',
-            },
-            {
-              name: 'Target',
-              address: '11253 Pines Blvd, Hollywood, FL',
-              price: 0.79,
-              distance: '5.2 mi',
-            },
-            {
-              name: 'Target',
-              address: '1750 W 37th Street (Pharmac...',
-              price: 0.89,
-              distance: '3.1 mi',
-            },
-          ],
-        });
-        showScreen('productDetails');
-      }
+      
+      // Extract error message from response
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to process image. Please try again.';
+      const errorStatus = error.response?.status;
+      
+      // Show user-friendly error message
+      Alert.alert(
+        scanMode === 'receipt' ? 'Receipt Scan Failed' : 'Product Scan Failed',
+        errorMessage,
+        [
+          { 
+            text: 'OK',
+            onPress: () => {
+              // Don't navigate away, let user try again
+            }
+          }
+        ]
+      );
+      
+      // Log detailed error for debugging
+      console.error('Error details:', {
+        status: errorStatus,
+        message: errorMessage,
+        response: error.response?.data,
+      });
     }
   };
 
@@ -261,6 +299,9 @@ export default function App() {
             selectedProduct={selectedProduct}
             onNavigate={showScreen}
             fadeAnim={fadeAnim}
+            onAddToList={(item) => {
+              setScannedItems(prev => [...prev, item]);
+            }}
           />
         );
       case 'shoppingList':
@@ -270,6 +311,60 @@ export default function App() {
             onNavigate={showScreen}
             fadeAnim={fadeAnim}
             calculateTotal={handleCalculateTotal}
+            onComparePrices={async () => {
+              if (scannedItems.length === 0) {
+                Alert.alert('No Items', 'Please scan a receipt first to compare prices.');
+                return;
+              }
+              
+              setIsComparingPrices(true);
+              try {
+                console.log('🔍 Starting price comparison for', scannedItems.length, 'items...');
+                console.log('📦 Items to compare:', scannedItems.map(i => i.name));
+                console.log('🏪 Original store:', originalReceiptStore);
+                const comparison = await compareReceiptPrices(scannedItems);
+                console.log('✅ Comparison result received:', {
+                  success: comparison.success,
+                  storesCount: comparison.stores?.length || 0,
+                  originalTotal: comparison.originalTotal,
+                  cheapestTotal: comparison.cheapestTotal,
+                });
+                // Add original store name to comparison data
+                setPriceComparisonData({
+                  ...comparison,
+                  originalStore: originalReceiptStore || 'your store',
+                });
+                showScreen('compare');
+              } catch (error) {
+                console.error('Error comparing prices:', error);
+                Alert.alert(
+                  'Error',
+                  error.message || 'Failed to compare prices. Please try again.',
+                  [{ text: 'OK' }]
+                );
+              } finally {
+                setIsComparingPrices(false);
+              }
+            }}
+            isComparingPrices={isComparingPrices}
+            onCompareProductPrice={async (item) => {
+              try {
+                setSelectedItemForCompare(item);
+                console.log(`🔍 Comparing prices for single product: ${item.name}`);
+                const comparisonResult = await compareProductPrices(item.name);
+                console.log('✅ Product comparison result:', comparisonResult);
+                setPriceComparisonData({
+                  ...comparisonResult,
+                  originalPrice: item.price,
+                  productName: item.name,
+                  isSingleProduct: true, // Flag to indicate single product comparison
+                });
+                showScreen('compare');
+              } catch (error) {
+                console.error('Error comparing product prices:', error);
+                Alert.alert('Error', 'Failed to compare prices: ' + error.message);
+              }
+            }}
           />
         );
       case 'compare':
@@ -279,6 +374,7 @@ export default function App() {
             onNavigate={showScreen}
             fadeAnim={fadeAnim}
             getSavings={handleGetSavings}
+            priceComparisonData={priceComparisonData}
           />
         );
       case 'storeDetails':
@@ -358,6 +454,13 @@ export default function App() {
       case 'terms':
         return (
           <TermsScreen
+            onNavigate={showScreen}
+            fadeAnim={fadeAnim}
+          />
+        );
+      case 'history':
+        return (
+          <HistoryScreen
             onNavigate={showScreen}
             fadeAnim={fadeAnim}
           />

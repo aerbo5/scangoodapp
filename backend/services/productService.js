@@ -1,73 +1,106 @@
 // Product lookup and matching service
+// Uses Open Food Facts API (free, open-source product database)
 
-// Dummy product database (in production, use real database)
-const PRODUCT_DATABASE = {
-  '1234567890123': {
-    barcode: '1234567890123',
-    name: 'Produce Avocado',
-    size: '1 Each',
-    category: 'Produce',
-    stores: [
-      { name: 'Target', price: 0.75, distance: '8.4 mi' },
-      { name: 'Whole Foods', price: 1.25, distance: '1.9 mi' },
-      { name: 'Walmart', price: 0.79, distance: '5.2 mi' },
-    ],
-  },
-  '9876543210987': {
-    barcode: '9876543210987',
-    name: "SB Ray's BBQ Sauce",
-    size: '18 FL Oz',
-    category: 'Condiments',
-    stores: [
-      { name: 'Target', price: 3.99, distance: '8.4 mi' },
-      { name: 'Walmart', price: 2.99, distance: '5.2 mi' },
-    ],
-  },
-};
+const axios = require('axios');
 
-// Product matching by labels (from image recognition)
-const PRODUCT_LABELS = {
-  'avocado': '1234567890123',
-  'tomato': '1111111111111',
-  'bbq sauce': '9876543210987',
-  'sauce': '9876543210987',
-};
+// Open Food Facts API endpoint
+const OPEN_FOOD_FACTS_API = 'https://world.openfoodfacts.org/api/v2/product';
 
-// Lookup product by barcode
-const lookupProductByBarcode = (barcode) => {
-  return PRODUCT_DATABASE[barcode] || null;
+// Lookup product by barcode using Open Food Facts API
+const lookupProductByBarcode = async (barcode) => {
+  if (!barcode) return null;
+
+  try {
+    console.log('🔍 Looking up product by barcode:', barcode);
+    console.log('🌐 Calling Open Food Facts API...');
+    
+    // Call Open Food Facts API
+    const response = await axios.get(`${OPEN_FOOD_FACTS_API}/${barcode}.json`, {
+      timeout: 5000, // 5 second timeout
+    });
+
+    if (response.data && response.data.status === 1 && response.data.product) {
+      const productData = response.data.product;
+      
+      console.log('✅ Product found in Open Food Facts:', productData.product_name || 'Unknown');
+      
+      // Extract product information
+      const productName = productData.product_name || 
+                         productData.product_name_en || 
+                         productData.abbreviated_product_name ||
+                         'Unknown Product';
+      
+      const quantity = productData.quantity || 
+                      productData.product_quantity || 
+                      '1 Each';
+      
+      const category = productData.categories || 
+                      productData.categories_tags?.[0] || 
+                      'General';
+      
+      // Extract brand if available
+      const brand = productData.brands || productData.brand || '';
+      const fullName = brand ? `${brand} ${productName}` : productName;
+      
+      // Get image URL if available
+      const imageUrl = productData.image_url || 
+                      productData.image_front_url ||
+                      productData.image_small_url ||
+                      null;
+      
+      // Format product data to match our structure
+      const product = {
+        barcode: barcode,
+        name: fullName.trim(),
+        size: quantity,
+        category: category,
+        image: imageUrl,
+        stores: [], // Will be populated by Custom Search API (no dummy data)
+        // Additional data from Open Food Facts
+        openFoodFactsData: {
+          productName: productName,
+          brand: brand,
+          categories: productData.categories_tags || [],
+          ingredients: productData.ingredients_text || null,
+          nutritionGrade: productData.nutrition_grade_fr || null,
+          novaGroup: productData.nova_group || null,
+        },
+      };
+      
+      return product;
+    } else {
+      console.log('⚠️ Product not found in Open Food Facts database');
+      // Product not found - return null (no dummy data)
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error fetching product from Open Food Facts:', {
+      message: error.message,
+      status: error.response?.status,
+      barcode: barcode,
+    });
+    
+    // Throw error instead of returning dummy data
+    throw new Error(`Failed to fetch product from Open Food Facts: ${error.message}`);
+  }
 };
 
 // Find product by labels (image recognition)
+// Note: This is a simple matching function - no dummy data
 const findProductByLabels = (labels) => {
   if (!labels || labels.length === 0) return null;
 
-  // Find matching product based on label descriptions
-  for (const label of labels) {
-    const description = label.description.toLowerCase();
-    const barcode = PRODUCT_LABELS[description];
-    
-    if (barcode) {
-      return PRODUCT_DATABASE[barcode];
-    }
-  }
-
-  // If no exact match, return first product as fallback
-  return PRODUCT_DATABASE['1234567890123'];
+  // No dummy product database - return null if no match
+  // In production, this would search a real database
+  return null;
 };
 
 // Search products by name
+// Note: No dummy data - returns empty array
+// In production, this would search a real database
 const searchProducts = (query) => {
-  const results = [];
-  const searchTerm = query.toLowerCase();
-
-  Object.values(PRODUCT_DATABASE).forEach(product => {
-    if (product.name.toLowerCase().includes(searchTerm)) {
-      results.push(product);
-    }
-  });
-
-  return results;
+  // No dummy product database - return empty array
+  return [];
 };
 
 module.exports = {

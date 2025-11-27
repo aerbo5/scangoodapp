@@ -72,3 +72,4 @@ git log --oneline -3
 
 Son commit'i görmelisiniz: "Add Netlify deployment configuration"
 
+

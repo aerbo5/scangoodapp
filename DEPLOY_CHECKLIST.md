@@ -64,3 +64,4 @@ npm run build:web
 - Backend URL'i Netlify environment variables'a eklemeyi unutmayın
 - Custom domain eklemek isterseniz Netlify dashboard'dan ekleyebilirsiniz
 
+

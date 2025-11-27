@@ -90,3 +90,4 @@ netlify deploy --prod
 
 Bu genellikle sorunu çözer! 🎯
 
+

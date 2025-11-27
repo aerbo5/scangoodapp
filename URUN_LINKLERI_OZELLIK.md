@@ -93,3 +93,4 @@ Artık:
 - ✅ Internetten ürün linklerini bulabilirsiniz
 - ✅ Kullanıcılar direkt satın alabilir!
 
+

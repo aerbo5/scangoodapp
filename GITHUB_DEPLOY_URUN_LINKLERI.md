@@ -49,3 +49,4 @@ GitHub'a eklendikten sonra:
 
 En kolay yol: Local'deki dosyaları okuyup GitHub web arayüzünden oluşturmak!
 
+

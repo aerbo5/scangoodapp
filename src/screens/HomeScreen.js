@@ -36,17 +36,6 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
 
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => onNavigate('camera', 'barcode')}
-            activeOpacity={1}
-          >
-            <View style={styles.actionBtnIconContainer}>
-              <Text style={styles.actionBtnIcon}>{Icons.barcode}</Text>
-            </View>
-            <Text style={styles.actionBtnText}>{t('home.scanBarcode')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
             onPress={() => onNavigate('camera', 'product')}
             activeOpacity={1}
           >

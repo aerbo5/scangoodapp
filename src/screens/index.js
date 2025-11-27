@@ -16,4 +16,5 @@ export { default as HelpScreen } from './HelpScreen';
 export { default as AboutScreen } from './AboutScreen';
 export { default as PrivacyScreen } from './PrivacyScreen';
 export { default as TermsScreen } from './TermsScreen';
+export { default as HistoryScreen } from './HistoryScreen';
 

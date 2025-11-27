@@ -28,20 +28,20 @@ const BottomNavigation = ({ currentScreen, onNavigate }) => {
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.navItem, currentScreen === 'shoppingList' && styles.navItemActive]}
-        onPress={() => onNavigate('shoppingList')}
+        style={[styles.navItem, (currentScreen === 'shoppingList' || currentScreen === 'history') && styles.navItemActive]}
+        onPress={() => onNavigate('history')}
       >
-        <View style={[styles.navIconContainer, currentScreen === 'shoppingList' && styles.navIconContainerActive]}>
+        <View style={[styles.navIconContainer, (currentScreen === 'shoppingList' || currentScreen === 'history') && styles.navIconContainerActive]}>
           <Image
             source={require('../assets/history-icon.png')}
             style={[
               styles.navIconImage,
-              currentScreen === 'shoppingList' && styles.navIconImageActive
+              (currentScreen === 'shoppingList' || currentScreen === 'history') && styles.navIconImageActive
             ]}
             resizeMode="contain"
           />
         </View>
-        <Text style={[styles.navText, currentScreen === 'shoppingList' && styles.navTextActive]}>
+        <Text style={[styles.navText, (currentScreen === 'shoppingList' || currentScreen === 'history') && styles.navTextActive]}>
           {t('common.history')}
         </Text>
       </TouchableOpacity>

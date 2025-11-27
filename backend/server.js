@@ -62,33 +62,91 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
   try {
     let items = null;
     let receiptText = null;
+    let receiptDate = null;
+    let receiptTime = null;
+    let storeName = null;
+    let storeAddress = null;
+    let receiptTotal = null;
+    let youSaveAmount = null;
 
+    console.log('🧾 Receipt scan request received');
+    
     // Try OCR if image is provided
     if (req.file && req.file.buffer) {
+      console.log('📸 Extracting text from receipt image...');
+      console.log('📊 Image file info:', {
+        size: req.file.buffer.length,
+        mimetype: req.file.mimetype,
+        originalname: req.file.originalname,
+      });
       receiptText = await visionService.extractTextFromImage(req.file.buffer);
+      
       if (receiptText) {
-        items = visionService.parseReceiptText(receiptText);
+        console.log('✅ OCR text extracted, length:', receiptText.length);
+        const parseResult = visionService.parseReceiptText(receiptText);
+        if (parseResult) {
+          items = parseResult.items;
+          receiptDate = parseResult.date;
+          receiptTime = parseResult.time;
+          storeName = parseResult.store;
+          storeAddress = parseResult.address;
+          receiptTotal = parseResult.youPaid; // Use receipt total as "you paid"
+          youSaveAmount = parseResult.youSave; // "You save" amount
+        }
+      } else {
+        console.log('⚠️ No text extracted from receipt');
       }
+    } else {
+      console.log('⚠️ No image file provided');
     }
 
-    // Fallback to dummy data if OCR fails or no image
+    // No fallback dummy data - return error if OCR fails
     if (!items || items.length === 0) {
-      items = [
-        { name: "SB Ray's BBQ Sauce", details: '18 FL Oz', price: 3.99, quantity: 1 },
-        { name: 'Produce Avocado', details: '1 Each', price: 1.25, quantity: 1 },
-        { name: 'Tomatoes', details: '0.73 lbs@ $1.99/lb', price: 1.45, quantity: 1 },
-      ];
+      console.log('❌ Could not extract items from receipt');
+      const errorMessage = receiptText 
+        ? 'Could not parse items from receipt text. Please try scanning again with better lighting and make sure the receipt is clearly visible.'
+        : 'Could not extract text from receipt image. Please check:\n1. Vision API is configured (GOOGLE_CLOUD_VISION_API_KEY, AZURE_COMPUTER_VISION_KEY, etc.)\n2. Image is clear and readable\n3. Receipt is properly lit and in focus';
+      
+      return res.status(404).json({
+        success: false,
+        error: errorMessage,
+        receiptText: receiptText ? receiptText.substring(0, 500) : null, // Return first 500 chars for debugging
+        debug: {
+          hasReceiptText: !!receiptText,
+          receiptTextLength: receiptText ? receiptText.length : 0,
+        },
+      });
     }
 
-    const total = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+    // Use receipt total if available, otherwise calculate from items
+    const calculatedTotal = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+    const youPaid = receiptTotal || calculatedTotal;
+    
+    console.log(`✅ Receipt parsed successfully: ${items.length} items`);
+    if (receiptTotal) {
+      console.log(`  💵 You paid: $${receiptTotal.toFixed(2)} (from receipt)`);
+    } else {
+      console.log(`  💵 You paid: $${calculatedTotal.toFixed(2)} (calculated from items)`);
+    }
+    if (youSaveAmount) {
+      console.log(`  💰 You save: $${youSaveAmount.toFixed(2)}`);
+    }
+    if (storeName) console.log(`  🏪 Store: ${storeName}`);
+    if (storeAddress) console.log(`  📍 Address: ${storeAddress}`);
+    if (receiptDate) console.log(`  📅 Date: ${receiptDate}`);
+    if (receiptTime) console.log(`  🕐 Time: ${receiptTime}`);
     
     res.json({
       success: true,
       items: items,
-      total: parseFloat(total.toFixed(2)),
-      store: 'Target',
-      date: new Date().toISOString(),
+      youPaid: parseFloat(youPaid.toFixed(2)), // Total, Total Due, Sub Total -> You Paid
+      youSave: youSaveAmount ? parseFloat(youSaveAmount.toFixed(2)) : null,
+      store: storeName || 'Unknown Store',
+      address: storeAddress || null,
+      date: receiptDate || null,
+      time: receiptTime || null,
       ocrUsed: !!receiptText,
+      itemCount: items.length,
     });
   } catch (error) {
     console.error('Error scanning receipt:', error);
@@ -106,40 +164,18 @@ app.post('/api/scan/barcode', upload.single('image'), async (req, res) => {
     if (req.file && req.file.buffer) {
       barcode = await visionService.detectBarcode(req.file.buffer);
       if (barcode) {
-        product = productService.lookupProductByBarcode(barcode);
+        product = await productService.lookupProductByBarcode(barcode);
       }
     }
 
-    // Fallback to dummy product if detection fails
+    // No fallback dummy product - if product not found, return error
     if (!product) {
-      product = productService.lookupProductByBarcode('1234567890123');
-      if (!product) {
-        product = {
-          barcode: barcode || '1234567890123',
-          name: 'Produce Avocado',
-          size: '1 Each',
-          stores: [
-            {
-              name: 'Target',
-              address: '1045 5th Street Unit 201, Miami, FL',
-              price: 0.75,
-              distance: '8.4 mi',
-            },
-            {
-              name: 'Target',
-              address: '11253 Pines Blvd, Hollywood, FL',
-              price: 0.79,
-              distance: '5.2 mi',
-            },
-            {
-              name: 'Target',
-              address: '1750 W 37th Street, Miami, FL',
-              price: 0.89,
-              distance: '3.1 mi',
-            },
-          ],
-        };
-      }
+      return res.status(404).json({
+        success: false,
+        error: barcode 
+          ? `Product with barcode ${barcode} not found in database.`
+          : 'Barcode not detected. Please try scanning again.',
+      });
     }
     
     res.json({
@@ -153,36 +189,219 @@ app.post('/api/scan/barcode', upload.single('image'), async (req, res) => {
   }
 });
 
-// Scan Product - Image recognition with internet product links
+// Scan Product - Unified scan (Barcode + Vision API) with internet product links
+// Automatically tries barcode first, then falls back to Vision API
 app.post('/api/scan/product', upload.single('image'), async (req, res) => {
   try {
     let labels = null;
     let product = null;
     let productName = null;
+    let barcode = null;
+    const productType = req.body.productType || ''; // Get product type from form data (e.g., "spring water")
 
     // Try image recognition if image is provided
     if (req.file && req.file.buffer) {
       console.log('📸 Processing image, size:', req.file.buffer.length, 'bytes');
-      labels = await visionService.detectProductLabels(req.file.buffer);
-      if (labels && labels.length > 0) {
+      
+      // STEP 1: Try barcode detection first (faster and more accurate)
+      console.log('🔍 Step 1: Trying barcode detection...');
+      barcode = await visionService.detectBarcode(req.file.buffer);
+      
+      if (barcode) {
+        console.log('✅ Barcode detected:', barcode);
+        // Try to find product by barcode (async call to Open Food Facts API)
+        product = await productService.lookupProductByBarcode(barcode);
+        if (product) {
+          console.log('✅ Product found by barcode:', product.name);
+          productName = product.name;
+        } else {
+          console.log('⚠️ Barcode detected but product not found in database, falling back to Vision API');
+          barcode = null; // Reset to try Vision API
+        }
+      } else {
+        console.log('ℹ️  No barcode detected, using Vision API');
+      }
+      
+      // STEP 2: If no barcode or product not found, try AI-powered recognition first (Gemini Vision)
+      // Then fall back to OCR and Vision API label detection
+      
+      // Check API keys at the beginning (for use in multiple steps)
+      const hasGeminiKey = !!process.env.GOOGLE_GEMINI_API_KEY;
+      const hasVisionKey = !!(process.env.GOOGLE_CLOUD_VISION_API_KEY || process.env.GOOGLE_CLOUD_VISION_KEY_FILE);
+      
+      if (!product) {
+        if (hasGeminiKey) {
+          console.log('🔍 Step 2a: Trying AI-powered product recognition (Gemini Vision)...');
+          console.log('   📝 Image size:', req.file.buffer.length, 'bytes');
+        } else {
+          console.log('⚠️ Step 2a: Gemini API key not configured, skipping AI recognition');
+        }
+        
+        const aiProductInfo = hasGeminiKey ? await visionService.detectProductWithAI(req.file.buffer) : null;
+        
+        if (aiProductInfo && aiProductInfo.fullName && aiProductInfo.fullName !== 'Unknown') {
+          productName = aiProductInfo.fullName;
+          console.log('✅ AI identified product:', productName);
+          console.log('   Brand:', aiProductInfo.brand);
+          console.log('   Product:', aiProductInfo.product);
+          console.log('   Size:', aiProductInfo.size || 'Unknown');
+          
+          // Extract size from AI result, default to "1 Each" if not found
+          const productSize = (aiProductInfo.size && aiProductInfo.size !== 'Unknown') 
+            ? aiProductInfo.size 
+            : '1 Each';
+          
+          // Create product object from AI result
+          product = {
+            name: productName,
+            size: productSize,
+            category: aiProductInfo.product || 'General',
+            labels: [
+              aiProductInfo.brand && aiProductInfo.brand !== 'Unknown' ? aiProductInfo.brand : null,
+              aiProductInfo.product && aiProductInfo.product !== 'Unknown' ? aiProductInfo.product : null,
+            ].filter(Boolean),
+            stores: [], // Will be populated by Custom Search API
+          };
+          console.log('💡 Created product object from AI result');
+        } else {
+          if (hasGeminiKey) {
+            console.log('⚠️ AI could not identify product, trying OCR...');
+          }
+          
+          // STEP 2b: Try OCR (to get brand/product name from text)
+          console.log('🔍 Step 2b: Trying OCR to extract text from product...');
+          if (!hasVisionKey) {
+            console.log('   ⚠️ Google Vision API key not configured - OCR will not work');
+          }
+          let ocrText = await visionService.extractTextFromImage(req.file.buffer);
+        
+        // Extract product name from OCR text (look for brand names, product names)
+        if (ocrText) {
+          console.log('📝 OCR Text extracted:', ocrText.substring(0, 300)); // First 300 chars
+          
+          // Extract potential product/brand names from OCR text
+          // Look for capitalized words, brand names, etc.
+          const textLines = ocrText.split('\n').filter(line => line.trim().length > 0);
+          const potentialNames = [];
+          
+          // Generic terms to filter out
+          const genericTerms = [
+            'Solution', 'Cylinder', 'Plastic', 'Bottle', 'Liquid', 'Water', 'Product',
+            'Created', 'Created By', 'By', 'France', 'FRANCE', 'Ultimate', 'Unflavored',
+            'Sparkling', 'SPARKLING', 'WATER', 'Label', 'Ingredients', 'Nutrition',
+            'Serving', 'Size', 'Fl Oz', 'ML', 'L', 'Oz', 'Net', 'Weight', 'Volume'
+          ];
+          
+          for (const line of textLines) {
+            const trimmedLine = line.trim();
+            const words = trimmedLine.split(/\s+/).filter(w => w.length > 0);
+            
+            // Skip very short lines (1-2 words) unless they look like brand names
+            if (words.length === 1 && words[0].length < 4) continue;
+            
+            // Look for lines with capitalized words (likely brand/product names)
+            if (words.length >= 1 && words.length <= 6) {
+              // Check if most words start with capital letter (brand/product name pattern)
+              const capitalizedCount = words.filter(w => /^[A-Z]/.test(w)).length;
+              const allCapsCount = words.filter(w => /^[A-Z]+$/.test(w) && w.length > 2).length;
+              
+              // Prefer lines with mostly capitalized words (but not all caps unless it's a short brand name)
+              if (capitalizedCount >= words.length * 0.6 || (words.length <= 3 && allCapsCount === words.length)) {
+                const name = words.join(' ').trim();
+                
+                // Filter out generic terms (case-insensitive)
+                const nameLower = name.toLowerCase();
+                const isGeneric = genericTerms.some(term => 
+                  nameLower === term.toLowerCase() || 
+                  nameLower.includes(term.toLowerCase()) ||
+                  name.startsWith(term + ' ') ||
+                  name.endsWith(' ' + term)
+                );
+                
+                if (!isGeneric && name.length >= 3) {
+                  potentialNames.push({
+                    name: name,
+                    length: name.length,
+                    wordCount: words.length,
+                    isAllCaps: allCapsCount === words.length && words.length <= 3,
+                  });
+                }
+              }
+            }
+          }
+          
+          // Sort potential names by priority:
+          // 1. Longer names (more likely to be full brand names)
+          // 2. Names with 2-4 words (typical brand name length)
+          // 3. Not all caps (unless very short)
+          potentialNames.sort((a, b) => {
+            // Prefer longer names
+            if (Math.abs(a.length - b.length) > 5) {
+              return b.length - a.length;
+            }
+            // Prefer 2-4 word names (typical brand names)
+            if (a.wordCount >= 2 && a.wordCount <= 4 && (b.wordCount < 2 || b.wordCount > 4)) return -1;
+            if (b.wordCount >= 2 && b.wordCount <= 4 && (a.wordCount < 2 || a.wordCount > 4)) return 1;
+            // Prefer non-all-caps (unless very short)
+            if (!a.isAllCaps && b.isAllCaps && b.length > 5) return -1;
+            if (a.isAllCaps && !b.isAllCaps && a.length > 5) return 1;
+            return b.length - a.length;
+          });
+          
+          if (potentialNames.length > 0) {
+            // Use best potential name as product name
+            productName = potentialNames[0].name;
+            console.log('✅ Product name extracted from OCR:', productName);
+            console.log('📋 All potential names:', potentialNames.map(p => p.name).join(', '));
+            
+            // If we don't have a product yet, create one from OCR-extracted name
+            if (!product) {
+              console.log('💡 Creating product from OCR-extracted name');
+              product = {
+                name: productName,
+                size: '1 Each',
+                category: 'General',
+                labels: [],
+                stores: [],
+              };
+            }
+          } else {
+            console.log('⚠️ No valid product name found in OCR text');
+          }
+            }
+          }
+        }
+        
+        // STEP 2c: Also try Vision API label detection (as fallback or supplement)
+        if (!productName) {
+          console.log('🔍 Step 2c: Trying Vision API label detection...');
+          if (!hasVisionKey) {
+            console.log('   ⚠️ Google Vision API key not configured - Label detection will not work');
+          }
+        labels = await visionService.detectProductLabels(req.file.buffer);
+        if (labels && labels.length > 0) {
         console.log('✅ Labels detected:', labels.map(l => l.description).join(', '));
         
-        // Get product name from labels for internet search (use most relevant label)
-        // Prefer specific product names over generic terms
-        const specificLabels = labels.filter(l => 
-          !['bottle', 'liquid', 'fluid', 'drinkware', 'product', 'object'].includes(l.description.toLowerCase())
-        );
-        productName = specificLabels.length > 0 
-          ? specificLabels[0].description 
-          : labels[0].description;
+        // If we don't have product name from OCR, use labels
+        if (!productName) {
+          // Get product name from labels for internet search (use most relevant label)
+          // Prefer specific product names over generic terms
+          const genericTerms = ['bottle', 'liquid', 'fluid', 'drinkware', 'product', 'object', 'cylinder', 'solution', 'plastic', 'container', 'package'];
+          const specificLabels = labels.filter(l => 
+            !genericTerms.includes(l.description.toLowerCase())
+          );
+          productName = specificLabels.length > 0 
+            ? specificLabels[0].description 
+            : labels[0].description;
+        }
         
         console.log('📦 Product name for search:', productName);
         
         // Try to find product in database first
         const foundProduct = productService.findProductByLabels(labels);
         
-        // If product found in database and it's not the fallback avocado, use it
-        if (foundProduct && foundProduct.name !== 'Produce Avocado') {
+        // If product found in database, use it
+        if (foundProduct) {
           console.log('✅ Product found in database:', foundProduct.name);
           product = foundProduct;
           productName = product.name; // Use database product name
@@ -194,79 +413,134 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
             size: '1 Each',
             category: labels[0].description,
             labels: labels.map(l => l.description),
-            stores: [
-              {
-                name: 'Target',
-                address: '1045 5th Street Unit 201, Miami, FL',
-                price: 0.75,
-                distance: '8.4 mi',
-              },
-              {
-                name: 'Whole Foods',
-                address: '6701 Red Road, Miami, FL',
-                price: 1.25,
-                distance: '1.9 mi',
-              },
-              {
-                name: 'Walmart',
-                address: '11253 Pines Blvd, Hollywood, FL',
-                price: 0.79,
-                distance: '5.2 mi',
-              },
-            ],
+            stores: [], // Will be populated by Custom Search API (no dummy data)
           };
           // productName is already set from labels above, don't override it
         }
-      } else {
-        console.log('⚠️ No labels detected, using fallback');
+        } else {
+          console.log('⚠️ No labels detected, using fallback');
+        }
       }
     }
 
-    // Fallback to dummy product only if no labels detected
+    // If we have productName from OCR but no product object, create one
+    if (!product && productName && productName.trim().length > 0) {
+      console.log('💡 Creating product from extracted name:', productName);
+      product = {
+        name: productName,
+        size: '1 Each',
+        category: 'General',
+        labels: labels ? labels.map(l => l.description) : [],
+        stores: [],
+      };
+    }
+    
+    // No fallback dummy product - if no product found, return error
     if (!product && (!labels || labels.length === 0)) {
-      console.log('⚠️ Using fallback dummy product');
-      product = productService.lookupProductByBarcode('1234567890123');
-      if (!product) {
-        product = {
-          name: 'Produce Avocado',
-          size: '1 Each',
-          stores: [
-            {
-              name: 'Target',
-              address: '1045 5th Street Unit 201, Miami, FL',
-              price: 0.75,
-              distance: '8.4 mi',
-            },
-            {
-              name: 'Whole Foods',
-              address: '6701 Red Road, Miami, FL',
-              price: 1.25,
-              distance: '1.9 mi',
-            },
-            {
-              name: 'Walmart',
-              address: '11253 Pines Blvd, Hollywood, FL',
-              price: 0.79,
-              distance: '5.2 mi',
-            },
-          ],
-        };
+      console.log('⚠️ No product found and no labels detected');
+      
+      // Check which APIs are configured
+      const hasGeminiKey = !!process.env.GOOGLE_GEMINI_API_KEY;
+      const hasVisionKey = !!(process.env.GOOGLE_CLOUD_VISION_API_KEY || process.env.GOOGLE_CLOUD_VISION_KEY_FILE);
+      
+      let errorMessage = 'Product not found. ';
+      if (!hasGeminiKey && !hasVisionKey) {
+        errorMessage += 'Please configure Google Vision API or Gemini API key in backend.';
+      } else if (!hasGeminiKey) {
+        errorMessage += 'AI recognition not available. Please try scanning again with better lighting.';
+      } else if (!hasVisionKey) {
+        errorMessage += 'Vision API not configured. Please try scanning again.';
+      } else {
+        errorMessage += 'Please try scanning again with better lighting and make sure the product is clearly visible.';
       }
-      productName = product.name;
+      
+      return res.status(404).json({
+        success: false,
+        error: errorMessage,
+        debug: {
+          barcodeDetected: !!barcode,
+          hasGeminiKey,
+          hasVisionKey,
+        },
+      });
     }
     // Note: If product was created from labels above, productName is already set correctly
     // Don't override it here!
 
     // Search for product links on internet
+    // Include size information if available for more specific results
     let productLinks = [];
-    if (productName) {
-      console.log('🔍 Searching product links for:', productName);
-      productLinks = await productSearchService.searchProductLinks(productName);
+    let searchQuery = productName;
+    
+    console.log('🔍 Preparing to search product links...');
+    console.log('   Product name:', productName);
+    console.log('   Product size:', product?.size || 'Unknown');
+    console.log('   Product type:', productType);
+    
+    // Build search query with size if available
+    if (productType) {
+      // Use productType for search (e.g., "spring water" instead of "Bottle" or "Drinking water")
+      searchQuery = productType;
+      console.log('🔍 Using product type for search:', searchQuery);
+      console.log('📝 Original product name:', productName);
+    } else if (productName) {
+      searchQuery = productName;
+      
+      // Add size to search query if available and not generic
+      if (product?.size && product.size !== '1 Each' && product.size !== 'Unknown') {
+        // Extract size numbers (e.g., "2.1 FL OZ" -> "2.1 fl oz" or "63 ML" -> "63ml")
+        const sizeMatch = product.size.match(/(\d+\.?\d*)\s*(fl\s*oz|ml|oz|g|lb|l)/i);
+        if (sizeMatch) {
+          const sizeValue = sizeMatch[1];
+          const sizeUnit = sizeMatch[2].toLowerCase().replace(/\s+/g, '');
+          searchQuery = `${productName} ${sizeValue}${sizeUnit}`;
+          console.log('📏 Added size to search query:', searchQuery);
+        } else {
+          // If no standard format, try to extract any numbers from size
+          const anyNumberMatch = product.size.match(/(\d+\.?\d*)/);
+          if (anyNumberMatch) {
+            searchQuery = `${productName} ${anyNumberMatch[1]}`;
+            console.log('📏 Added size number to search query:', searchQuery);
+          }
+        }
+      }
+      
+      console.log('🔍 Searching product links for:', searchQuery);
+    } else {
+      console.log('⚠️ No product name available for search');
+    }
+    
+    if (searchQuery) {
+      try {
+        console.log('🌐 Calling Custom Search API with query:', searchQuery);
+        productLinks = await productSearchService.searchProductLinks(searchQuery);
+        const totalLinks = (productLinks.exactMatches?.length || 0) + (productLinks.similarProducts?.length || 0);
+        console.log('✅ Custom Search API returned', totalLinks, 'product links', {
+          exactMatches: productLinks.exactMatches?.length || 0,
+          similarProducts: productLinks.similarProducts?.length || 0,
+        });
+        
+        // If no results and we added size, try without size
+        if (totalLinks === 0 && product?.size && product.size !== '1 Each' && product.size !== 'Unknown') {
+          console.log('⚠️ No results with size, trying without size...');
+          productLinks = await productSearchService.searchProductLinks(productName);
+          const retryTotalLinks = (productLinks.exactMatches?.length || 0) + (productLinks.similarProducts?.length || 0);
+          console.log('✅ Search without size returned', retryTotalLinks, 'product links');
+        }
+      } catch (error) {
+        console.error('❌ Error searching product links:', error.message);
+        console.error('💡 Check if Google Custom Search API is configured correctly');
+        productLinks = { exactMatches: [], similarProducts: [] }; // Return empty results instead of crashing
+      }
+    } else {
+      console.log('⚠️ No search query available, skipping Custom Search API');
     }
     
     res.json({
       success: true,
       product: product,
+      barcodeDetected: !!barcode,
+      barcode: barcode || null,
       labelsDetected: labels ? labels.map(l => l.description) : null,
       productLinks: productLinks, // Internet product links
     });
@@ -276,7 +550,7 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
   }
 });
 
-// Compare Prices - Get prices from multiple stores
+// Compare Prices - Get prices from multiple stores (old dummy data method)
 app.post('/api/compare/prices', async (req, res) => {
   try {
     const { items } = req.body;
@@ -293,6 +567,217 @@ app.post('/api/compare/prices', async (req, res) => {
     });
   } catch (error) {
     console.error('Error comparing prices:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Compare Prices for a Single Product
+app.post('/api/compare/product-prices', async (req, res) => {
+  try {
+    const { productName } = req.body;
+    
+    if (!productName || productName.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Product name is required' });
+    }
+
+    console.log(`🔍 Comparing prices for product: ${productName}`);
+    
+    // Search product in stores
+    const productLinks = await productSearchService.searchProductLinks(productName, productName);
+    
+    // Extract prices from exact matches
+    const prices = [];
+    if (productLinks.exactMatches && productLinks.exactMatches.length > 0) {
+      productLinks.exactMatches.forEach(link => {
+        if (link.price && link.price > 0) {
+          prices.push({
+            store: link.source,
+            price: link.price,
+            link: link.link,
+            title: link.title,
+          });
+        }
+      });
+    }
+    
+    // Find cheapest price
+    const cheapestPrice = prices.length > 0 
+      ? prices.reduce((min, p) => p.price < min.price ? p : min, prices[0])
+      : null;
+    
+    console.log(`✅ Found ${prices.length} prices for ${productName}, cheapest: $${cheapestPrice?.price?.toFixed(2) || 'N/A'}`);
+    
+    res.json({
+      success: true,
+      productName: productName,
+      prices: prices, // All prices found
+      cheapestPrice: cheapestPrice, // Best price
+      priceCount: prices.length,
+    });
+  } catch (error) {
+    console.error('❌ Error comparing product prices:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Compare Receipt Prices - Search all receipt items in stores
+// Groups prices by store and shows total for each store
+app.post('/api/compare/receipt-prices', async (req, res) => {
+  try {
+    const { items } = req.body;
+    
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'Items array is required and must not be empty' });
+    }
+
+    console.log(`🔍 Comparing prices for ${items.length} receipt items...`);
+    
+    // Search each item in stores and collect prices by store
+    const storePricesMap = {}; // { storeName: { items: [{ name, price, quantity, link }], total: 0 } }
+    const itemDetails = []; // For breakdown: [{ name, originalPrice, quantity, storePrices: { store: price } }]
+    let processedCount = 0;
+    
+    for (const item of items) {
+      try {
+        const productName = item.name;
+        if (!productName || productName.trim().length === 0) {
+          console.log(`⚠️ Skipping item with no name:`, item);
+          continue;
+        }
+        
+        console.log(`  🔎 Searching for: ${productName}`);
+        const productLinks = await productSearchService.searchProductLinks(productName, productName);
+        console.log(`  📊 Search result for "${productName}":`, {
+          exactMatches: productLinks.exactMatches?.length || 0,
+          similarProducts: productLinks.similarProducts?.length || 0,
+        });
+        
+        // Extract prices from exact matches AND similar products (muadil ürünler)
+        const itemStorePrices = {}; // { store: price }
+        
+        // Get exact matches
+        if (productLinks.exactMatches && productLinks.exactMatches.length > 0) {
+          productLinks.exactMatches.forEach(link => {
+            if (link.price && link.price > 0) {
+              const store = link.source;
+              // Use first price found for each store (already sorted by price)
+              if (!itemStorePrices[store]) {
+                itemStorePrices[store] = link.price;
+                
+                // Add to store prices map
+                if (!storePricesMap[store]) {
+                  storePricesMap[store] = {
+                    store: store,
+                    items: [],
+                    total: 0,
+                  };
+                }
+                storePricesMap[store].items.push({
+                  name: productName,
+                  price: link.price,
+                  quantity: item.quantity || 1,
+                  link: link.link,
+                  title: link.title,
+                });
+                storePricesMap[store].total += link.price * (item.quantity || 1);
+              }
+            }
+          });
+        }
+        
+        // If no exact matches, try similar products (muadil ürünler)
+        if (Object.keys(itemStorePrices).length === 0 && productLinks.similarProducts && productLinks.similarProducts.length > 0) {
+          productLinks.similarProducts.forEach(link => {
+            if (link.price && link.price > 0) {
+              const store = link.source;
+              if (!itemStorePrices[store]) {
+                itemStorePrices[store] = link.price;
+                
+                if (!storePricesMap[store]) {
+                  storePricesMap[store] = {
+                    store: store,
+                    items: [],
+                    total: 0,
+                  };
+                }
+                storePricesMap[store].items.push({
+                  name: productName,
+                  price: link.price,
+                  quantity: item.quantity || 1,
+                  link: link.link,
+                  title: link.title,
+                  isSimilar: true, // Mark as similar product
+                });
+                storePricesMap[store].total += link.price * (item.quantity || 1);
+              }
+            }
+          });
+        }
+        
+        // Store item details for breakdown
+        itemDetails.push({
+          name: productName,
+          originalPrice: item.price,
+          quantity: item.quantity || 1,
+          storePrices: itemStorePrices, // { store: price }
+        });
+        
+        processedCount++;
+        const foundStores = Object.keys(itemStorePrices);
+        console.log(`  ✅ Found prices for ${productName} in ${foundStores.length} stores: ${foundStores.join(', ')}`);
+        
+        // Add small delay to avoid rate limiting
+        if (processedCount < items.length) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between searches
+        }
+      } catch (error) {
+        console.error(`  ❌ Error searching for ${item.name}:`, error.message);
+        // Continue with other items even if one fails
+        itemDetails.push({
+          name: item.name,
+          originalPrice: item.price,
+          quantity: item.quantity || 1,
+          storePrices: {},
+          error: error.message,
+        });
+      }
+    }
+    
+    // Convert store prices map to array and sort by total
+    const stores = Object.values(storePricesMap)
+      .map(store => ({
+        store: store.store,
+        address: 'Online', // Online stores
+        distance: 'Online',
+        total: parseFloat(store.total.toFixed(2)),
+        items: store.items, // Breakdown of items
+      }))
+      .sort((a, b) => a.total - b.total);
+    
+    // Calculate totals
+    const originalTotal = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+    const cheapestTotal = stores.length > 0 ? stores[0].total : originalTotal;
+    const potentialSavings = originalTotal - cheapestTotal;
+    
+    console.log(`✅ Price comparison complete:`);
+    console.log(`   Original total: $${originalTotal.toFixed(2)}`);
+    console.log(`   Cheapest total: $${cheapestTotal.toFixed(2)} (${stores.length > 0 ? stores[0].store : 'N/A'})`);
+    console.log(`   Potential savings: $${potentialSavings.toFixed(2)}`);
+    console.log(`   Stores found: ${stores.map(s => `${s.store} ($${s.total.toFixed(2)})`).join(', ')}`);
+    
+    res.json({
+      success: true,
+      stores: stores, // Array of stores with totals and item breakdowns
+      bestStore: stores.length > 0 ? stores[0] : null, // Cheapest store
+      itemDetails: itemDetails, // Breakdown per item
+      originalTotal: parseFloat(originalTotal.toFixed(2)),
+      cheapestTotal: parseFloat(cheapestTotal.toFixed(2)),
+      potentialSavings: parseFloat(potentialSavings.toFixed(2)),
+      itemsProcessed: processedCount,
+      itemsTotal: items.length,
+    });
+  } catch (error) {
+    console.error('❌ Error comparing receipt prices:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

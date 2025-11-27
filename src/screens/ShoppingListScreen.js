@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from '
 import { Colors, Spacing, BorderRadius } from '../constants';
 import { useLanguage } from '../context/LanguageContext';
 
-const ShoppingListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal }) => {
+const ShoppingListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, onComparePrices, isComparingPrices, onCompareProductPrice }) => {
   const { t } = useLanguage();
 
   return (
@@ -12,15 +12,35 @@ const ShoppingListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal
         <View style={styles.shoppingList}>
           <Text style={styles.listTitle}>{t('shoppingList.yourShoppingList')}</Text>
 
-          {scannedItems.map((item, index) => (
-            <View key={index} style={styles.listItem}>
+          {scannedItems.length === 0 ? (
+            <View style={styles.emptyList}>
+              <Text style={styles.emptyListText}>📝 No items yet</Text>
+              <Text style={styles.emptyListSubtext}>Scan a receipt or product to get started</Text>
+            </View>
+          ) : (
+            scannedItems.map((item, index) => (
+            <TouchableOpacity 
+              key={index} 
+              style={styles.listItem}
+              onPress={() => onNavigate('productDetails', null, item)}
+            >
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name || 'Item'}</Text>
                 <Text style={styles.itemDetails}>{item.details || ''}</Text>
+                <TouchableOpacity
+                  style={styles.compareBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    onCompareProductPrice(item);
+                  }}
+                >
+                  <Text style={styles.compareBtnText}>💰 Compare Prices</Text>
+                </TouchableOpacity>
               </View>
               <Text style={styles.itemPrice}>${((item.price || 0)).toFixed(2)}</Text>
-            </View>
-          ))}
+            </TouchableOpacity>
+            ))
+          )}
 
           <View style={styles.totalPaid}>
             <Text style={styles.totalPaidText}>{t('shoppingList.youPaid')} ${calculateTotal(scannedItems)}</Text>
@@ -34,10 +54,13 @@ const ShoppingListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal
               </Text>
             </View>
             <TouchableOpacity
-              style={styles.seeStoresBtn}
-              onPress={() => onNavigate('compare')}
+              style={[styles.seeStoresBtn, isComparingPrices && styles.seeStoresBtnDisabled]}
+              onPress={onComparePrices}
+              disabled={isComparingPrices}
             >
-              <Text style={styles.seeStoresBtnText}>{t('shoppingList.seeStores')}</Text>
+              <Text style={styles.seeStoresBtnText}>
+                {isComparingPrices ? '🔍 Comparing...' : '💰 Compare Prices'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -100,6 +123,19 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 20,
     fontWeight: '800',
+    color: Colors.primary,
+  },
+  compareBtn: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: BorderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  compareBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: Colors.primary,
   },
   totalPaid: {
@@ -169,6 +205,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  seeStoresBtnDisabled: {
+    opacity: 0.6,
   },
 });
 

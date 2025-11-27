@@ -97,3 +97,4 @@ pricecheck-/
 
 Root `package.json` dosyasında `build:web` ve `build` script'leri olmalı. `netlify/functions/package.json` dosyasına dokunmayın, o Netlify Functions için!
 
+

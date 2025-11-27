@@ -12,7 +12,7 @@ echo [2/3] Ngrok baslatiliyor...
 echo.
 echo ONEMLI: Ngrok URL'ini kopyalayin ve apiService.js dosyasina ekleyin!
 echo.
-start "Ngrok Tunnel" cmd /k "ngrok http 3000"
+start "Ngrok Tunnel" cmd /k "ngrok http 3001"
 timeout /t 3 /nobreak >nul
 
 echo [3/3] Frontend baslatiliyor...

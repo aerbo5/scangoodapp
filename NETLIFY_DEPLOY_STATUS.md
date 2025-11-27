@@ -62,3 +62,4 @@ Deploy başarılı olduğunda:
 
 Başarılar! 🎉
 
+

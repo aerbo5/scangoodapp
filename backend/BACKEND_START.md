@@ -93,3 +93,4 @@ npm start
 - API key'i güvenli tutun
 - Production'da environment variable olarak ekleyin
 
+

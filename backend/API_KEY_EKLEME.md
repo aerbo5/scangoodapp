@@ -97,3 +97,4 @@ API key eklendikten sonra:
 - ✅ Kamera ile çektiğiniz görüntüler gerçek sonuçlar verecek
 - ✅ Dummy data kullanılmayacak!
 
+

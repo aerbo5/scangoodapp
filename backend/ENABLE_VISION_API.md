@@ -94,3 +94,4 @@ API etkinleştirildikten sonra backend loglarında şunu göreceksiniz:
 - API'yi etkinleştirmek ücretsizdir (kullanım limitleri var)
 - API etkinleştirildikten sonra hemen çalışmaya başlar
 
+

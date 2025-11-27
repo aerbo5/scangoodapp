@@ -104,3 +104,4 @@ Google Vision API yapılandırıldıktan sonra:
 - `.env` dosyası `.gitignore`'da olmalı
 - Production'da environment variable olarak ekleyin
 
+

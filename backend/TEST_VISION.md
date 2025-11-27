@@ -173,3 +173,4 @@ Tüm endpoint'ler artık gerçek Google Vision API kullanıyor:
 - Production'da Service Account Key kullanmak daha güvenlidir
 - Test için API key yeterlidir
 
+

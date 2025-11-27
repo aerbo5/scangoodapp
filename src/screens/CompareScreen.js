@@ -4,9 +4,119 @@ import { Colors, Spacing, BorderRadius } from '../constants';
 import { Icons } from '../constants/icons';
 import { useLanguage } from '../context/LanguageContext';
 
-const CompareScreen = ({ scannedItems, onNavigate, fadeAnim, getSavings }) => {
+const CompareScreen = ({ scannedItems, onNavigate, fadeAnim, getSavings, priceComparisonData }) => {
   const { t } = useLanguage();
-  const stores = [
+  
+  // Use real price comparison data if available, otherwise use dummy data
+  const hasRealData = priceComparisonData && priceComparisonData.success;
+  const isSingleProduct = priceComparisonData && priceComparisonData.isSingleProduct;
+  
+  // Debug: Log what we received
+  if (priceComparisonData) {
+    console.log('📊 CompareScreen received data:', {
+      success: priceComparisonData.success,
+      hasStores: !!priceComparisonData.stores,
+      storesCount: priceComparisonData.stores?.length || 0,
+      hasItems: !!priceComparisonData.items,
+      itemsCount: priceComparisonData.items?.length || 0,
+      isSingleProduct: isSingleProduct,
+    });
+  }
+  
+  // Group prices by store from all items
+  const storePricesMap = {};
+  
+  // Handle single product comparison
+  if (isSingleProduct && hasRealData && priceComparisonData.prices) {
+    priceComparisonData.prices.forEach(price => {
+      if (!storePricesMap[price.store]) {
+        storePricesMap[price.store] = {
+          name: price.store,
+          items: [],
+          total: 0,
+        };
+      }
+      storePricesMap[price.store].items.push({
+        name: priceComparisonData.productName,
+        price: price.price,
+        quantity: 1,
+        link: price.link,
+      });
+      storePricesMap[price.store].total = price.price;
+    });
+  }
+  // Handle receipt items comparison (new format with stores array)
+  else if (hasRealData && priceComparisonData.stores) {
+    // New format: stores array with totals and item breakdowns
+    console.log('📊 Processing stores from comparison data:', priceComparisonData.stores.length, 'stores');
+    priceComparisonData.stores.forEach(store => {
+      console.log(`  🏪 Store: ${store.store}, Total: $${store.total}, Items: ${store.items?.length || 0}`);
+      storePricesMap[store.store] = {
+        name: store.store,
+        items: store.items || [],
+        total: store.total || 0,
+      };
+    });
+  }
+  // Handle old format (items array)
+  else if (hasRealData && priceComparisonData.items) {
+    priceComparisonData.items.forEach(item => {
+      if (item.prices && item.prices.length > 0) {
+        item.prices.forEach(price => {
+          if (!storePricesMap[price.store]) {
+            storePricesMap[price.store] = {
+              name: price.store,
+              items: [],
+              total: 0,
+            };
+          }
+          storePricesMap[price.store].items.push({
+            name: item.name,
+            price: price.price,
+            quantity: item.quantity || 1,
+            link: price.link,
+          });
+          storePricesMap[price.store].total += price.price * (item.quantity || 1);
+        });
+      }
+    });
+  }
+  
+  // Helper functions
+  function getStoreLogo(storeName) {
+    if (storeName.includes('Target')) return '◯';
+    if (storeName.includes('Walmart')) return '★';
+    if (storeName.includes('Amazon')) return '📦';
+    if (storeName.includes('Whole Foods')) return 'W';
+    if (storeName.includes('Publix')) return 'P';
+    if (storeName.includes('Kroger')) return 'K';
+    if (storeName.includes('Safeway')) return 'S';
+    return storeName.charAt(0).toUpperCase();
+  }
+  
+  function getStoreColor(storeName) {
+    if (storeName.includes('Target')) return Colors.target;
+    if (storeName.includes('Walmart')) return Colors.walmart;
+    if (storeName.includes('Amazon')) return '#FF9900';
+    if (storeName.includes('Whole Foods')) return Colors.wholeFoods;
+    return Colors.primary;
+  }
+
+  // Convert to array and sort by total
+  const stores = Object.values(storePricesMap)
+    .map(store => ({
+      name: store.name,
+      address: 'Online', // Online stores don't have addresses
+      distance: 'Online',
+      total: parseFloat(store.total.toFixed(2)),
+      logo: getStoreLogo(store.name),
+      color: getStoreColor(store.name),
+      items: store.items,
+    }))
+    .sort((a, b) => a.total - b.total);
+  
+  // If no real data, use dummy data
+  const displayStores = stores.length > 0 ? stores : [
     {
       name: 'Target',
       address: '1045 5th Street Unit 201',
@@ -14,6 +124,7 @@ const CompareScreen = ({ scannedItems, onNavigate, fadeAnim, getSavings }) => {
       total: 27.34,
       logo: '◯',
       color: Colors.target,
+      items: [], // Empty items array for dummy data
     },
     {
       name: 'Whole Foods Market',
@@ -22,6 +133,7 @@ const CompareScreen = ({ scannedItems, onNavigate, fadeAnim, getSavings }) => {
       total: 29.15,
       logo: 'W',
       color: Colors.wholeFoods,
+      items: [], // Empty items array for dummy data
     },
     {
       name: 'Walmart Supercenter',
@@ -30,16 +142,19 @@ const CompareScreen = ({ scannedItems, onNavigate, fadeAnim, getSavings }) => {
       total: 34.04,
       logo: '★',
       color: Colors.walmart,
-    },
-    {
-      name: "Sam's Club",
-      address: '8425 NW 13th Terrace',
-      distance: '6 mi',
-      total: 35.45,
-      logo: 'S',
-      color: Colors.samsClub,
+      items: [], // Empty items array for dummy data
     },
   ];
+  
+  // Calculate savings
+  const originalTotal = isSingleProduct && hasRealData 
+    ? (priceComparisonData.originalPrice || 0)
+    : hasRealData 
+      ? (priceComparisonData.originalTotal || scannedItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0))
+      : scannedItems.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+  const cheapestTotal = displayStores.length > 0 ? displayStores[0].total : originalTotal;
+  const savings = originalTotal - cheapestTotal;
+  
 
   return (
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
@@ -49,11 +164,28 @@ const CompareScreen = ({ scannedItems, onNavigate, fadeAnim, getSavings }) => {
             <Text style={styles.backButtonText}>{t('common.back')}</Text>
           </TouchableOpacity>
 
-          <Text style={styles.compareTitle}>{t('compare.comparePrices')}</Text>
+          <Text style={styles.compareTitle}>
+            {isSingleProduct ? `Compare: ${priceComparisonData?.productName || 'Product'}` : t('compare.comparePrices')}
+          </Text>
 
           <View style={styles.savingsBanner}>
             <Text style={styles.savingsText}>{t('compare.youWouldSave')}</Text>
-            <Text style={styles.savingsAmount}>${getSavings()}</Text>
+            <Text style={styles.savingsAmount}>${savings.toFixed(2)}</Text>
+            {hasRealData && (
+              <>
+                <Text style={styles.savingsSubtext}>
+                  You paid: ${originalTotal.toFixed(2)} at {priceComparisonData?.originalStore || 'your store'}
+                </Text>
+                <Text style={styles.savingsSubtext}>
+                  Best price: ${cheapestTotal.toFixed(2)} at {displayStores.length > 0 ? displayStores[0].name : 'other stores'}
+                </Text>
+              </>
+            )}
+            {!hasRealData && (
+              <Text style={styles.savingsSubtext}>
+                Original: ${originalTotal.toFixed(2)} → Best: ${cheapestTotal.toFixed(2)}
+              </Text>
+            )}
           </View>
 
           <View style={styles.mapPreview}>
@@ -75,32 +207,47 @@ const CompareScreen = ({ scannedItems, onNavigate, fadeAnim, getSavings }) => {
 
           <Text style={styles.sectionHeader}>{t('shoppingList.bestValue')}</Text>
 
-          <View style={styles.bestValueCard}>
-            <View style={styles.bestPriceBadge}>
-              <Text style={styles.bestPriceBadgeText}>{t('compare.bestPrice')}</Text>
-            </View>
-            <View style={styles.storeCardHeader}>
-              <View style={styles.storeCardInfo}>
-                <View style={[styles.storeCardLogo, { backgroundColor: stores[0].color }]}>
-                  <Text style={styles.storeCardLogoText}>{stores[0].logo}</Text>
-                </View>
-                <View>
-                  <Text style={styles.storeCardName}>{stores[0].name}</Text>
-                  <Text style={styles.storeCardAddress}>{stores[0].address}</Text>
-                    <Text style={styles.storeDistance}>{Icons.location} {stores[0].distance}</Text>
-                </View>
+          {displayStores.length > 0 && (
+            <TouchableOpacity 
+              style={styles.bestValueCard}
+              onPress={() => {
+                const store = displayStores[0];
+                const items = store.items || [];
+                console.log('🏪 Opening store details:', store.name, 'with', items.length, 'items');
+                onNavigate('storeDetails', { store, scannedItems: items });
+              }}
+            >
+              <View style={styles.bestPriceBadge}>
+                <Text style={styles.bestPriceBadgeText}>{t('compare.bestPrice')}</Text>
               </View>
-              <Text style={styles.storeCardPrice}>${stores[0].total.toFixed(2)}</Text>
-            </View>
-          </View>
+              <View style={styles.storeCardHeader}>
+                <View style={styles.storeCardInfo}>
+                  <View style={[styles.storeCardLogo, { backgroundColor: displayStores[0].color }]}>
+                    <Text style={styles.storeCardLogoText}>{displayStores[0].logo}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.storeCardName}>{displayStores[0].name}</Text>
+                    <Text style={styles.storeCardAddress}>{displayStores[0].address}</Text>
+                    <Text style={styles.storeDistance}>{Icons.location} {displayStores[0].distance}</Text>
+                  </View>
+                </View>
+                <Text style={styles.storeCardPrice}>${displayStores[0].total.toFixed(2)}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
-          <Text style={styles.sectionHeader}>{t('compare.moreOptions')}</Text>
-
-          {stores.slice(1).map((store, index) => (
+          {displayStores.length > 1 && (
+            <>
+              <Text style={styles.sectionHeader}>{t('compare.moreOptions')}</Text>
+              {displayStores.slice(1).map((store, index) => (
             <TouchableOpacity 
               key={index} 
               style={styles.storeCard}
-              onPress={() => onNavigate('storeDetails', { store, scannedItems })}
+              onPress={() => {
+                const items = store.items || [];
+                console.log('🏪 Opening store details:', store.name, 'with', items.length, 'items');
+                onNavigate('storeDetails', { store, scannedItems: items });
+              }}
             >
               <View style={styles.storeCardHeader}>
                 <View style={styles.storeCardInfo}>
@@ -116,11 +263,20 @@ const CompareScreen = ({ scannedItems, onNavigate, fadeAnim, getSavings }) => {
                 <Text style={styles.storeCardPrice}>${store.total.toFixed(2)}</Text>
               </View>
             </TouchableOpacity>
-          ))}
+              ))}
+            </>
+          )}
 
-          <Text style={styles.infoText}>
-            {t('compare.bestDealsFound').replace('{chains}', '4').replace('{stores}', '47')}
-          </Text>
+          {hasRealData && (
+            <Text style={styles.infoText}>
+              Found prices for {priceComparisonData.itemsProcessed} of {priceComparisonData.itemsTotal} items
+            </Text>
+          )}
+          {!hasRealData && (
+            <Text style={styles.infoText}>
+              {t('compare.bestDealsFound').replace('{chains}', '4').replace('{stores}', '47')}
+            </Text>
+          )}
 
           <View style={styles.actionButtonsRow}>
             <TouchableOpacity style={styles.secondaryBtn}>
@@ -187,6 +343,12 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 32,
     fontWeight: '700',
+  },
+  savingsSubtext: {
+    color: Colors.white,
+    fontSize: 12,
+    marginTop: Spacing.xs,
+    opacity: 0.9,
   },
   mapPreview: {
     width: '100%',

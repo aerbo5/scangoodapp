@@ -258,3 +258,4 @@ Deploy tamamlandıktan sonra:
 
 Başarılar! 🚀
 
+

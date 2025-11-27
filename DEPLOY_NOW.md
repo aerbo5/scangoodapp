@@ -87,3 +87,4 @@ Deploy tamamlandıktan sonra uygulamanız canlıda olacak! 🚀
 
 **Sorularınız mı var?** `NETLIFY_DEPLOY.md` dosyasına bakın.
 
+

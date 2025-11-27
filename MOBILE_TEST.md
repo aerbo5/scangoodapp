@@ -119,3 +119,4 @@ Mobilde test etmek için:
 - **Production Build**: App Store/Play Store için build yapmanız gerekir
 - **Backend**: Mobilde backend'e bağlanmak için ngrok kullanmanız gerekebilir
 
+

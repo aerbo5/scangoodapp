@@ -74,3 +74,4 @@ Aşağıdaki içeriği tamamen kopyalayıp yapıştırın:
 - JSON formatını koruyun (virgüller, tırnak işaretleri)
 - `build:web` ve `build` script'leri mutlaka olmalı
 
+

@@ -8,7 +8,15 @@ import { Platform } from 'react-native';
 const getApiBaseUrl = () => {
   // Development mode
   if (__DEV__) {
-    return 'https://diagenetic-berry-pompously.ngrok-free.dev/api';  // Ngrok URL'inizi buraya yapıştırın (sonunda /api olmalı!)
+    // Web platform: use localhost (works in browser)
+    if (Platform.OS === 'web') {
+      return 'http://localhost:3001/api';
+    }
+    
+    // Mobile platform (Expo Go): use ngrok
+    // Ngrok URL'inizi buraya yapıştırın (sonunda /api olmalı!)
+    // Her ngrok başlatışında bu URL'yi güncelleyin!
+    return 'https://diagenetic-berry-pompously.ngrok-free.dev/api';
   }
   
   // Production mode
@@ -41,10 +49,12 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     console.log('🌐 API Request:', config.method?.toUpperCase(), config.baseURL + config.url);
+    console.log('🔗 Full URL:', config.baseURL + config.url);
     return config;
   },
   (error) => {
     console.error('❌ API Request Error:', error);
+    console.error('❌ Request Config:', error.config);
     return Promise.reject(error);
   }
 );
@@ -62,13 +72,40 @@ api.interceptors.response.use(
       data: error.response?.data,
       url: error.config?.url,
       baseURL: error.config?.baseURL,
+      fullURL: error.config?.baseURL + error.config?.url,
       message: error.message,
     });
+    
+    // More detailed error for connection issues
+    if (error.message === 'Network Error' || error.code === 'NETWORK_ERROR') {
+      console.error('🔴 Network Error Detected!');
+      console.error('🔴 Check if:');
+      console.error('   1. Backend is running on http://localhost:3001');
+      console.error('   2. Ngrok is running and URL is correct');
+      console.error('   3. apiService.js has correct ngrok URL');
+      console.error('   4. URL format: https://xxxxx.ngrok-free.app/api');
+    }
+    
     return Promise.reject(error);
   }
 );
 
 // Scan Receipt
+// Compare prices for a single product
+export const compareProductPrices = async (productName) => {
+  try {
+    const response = await api.post('/compare/product-prices', {
+      productName: productName,
+    }, {
+      timeout: 30000,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error comparing product prices:', error);
+    throw error;
+  }
+};
+
 export const scanReceipt = async (imageUri) => {
   try {
     const formData = new FormData();
@@ -124,23 +161,13 @@ export const scanBarcode = async (imageUri) => {
     return response.data;
   } catch (error) {
     console.error('Error scanning barcode:', error);
-    // Return dummy data if API fails
-    return {
-      success: true,
-      product: {
-        barcode: '1234567890123',
-        name: 'Produce Avocado',
-        size: '1 Each',
-        stores: [
-          { name: 'Target', address: '1045 5th Street', price: 0.75, distance: '8.4 mi' },
-        ],
-      },
-    };
+    // Return error instead of dummy data
+    throw error;
   }
 };
 
 // Scan Product
-export const scanProduct = async (imageUri) => {
+export const scanProduct = async (imageUri, productType = '') => {
   try {
     const formData = new FormData();
     const filename = imageUri.split('/').pop();
@@ -152,6 +179,11 @@ export const scanProduct = async (imageUri) => {
       type: type,
       name: filename || 'product.jpg',
     });
+
+    // Add product type if provided (e.g., "spring water", "organic")
+    if (productType) {
+      formData.append('productType', productType);
+    }
 
     const response = await api.post('/scan/product', formData, {
       headers: {
@@ -168,27 +200,20 @@ export const scanProduct = async (imageUri) => {
       url: error.config?.url,
       baseURL: error.config?.baseURL,
     });
-    // Return dummy data if API fails
-    return {
-      success: true,
-      product: {
-        name: 'Produce Avocado',
-        size: '1 Each',
-        stores: [
-          { name: 'Target', address: '1045 5th Street', price: 0.75, distance: '8.4 mi' },
-        ],
-      },
-    };
+    // Return error instead of dummy data
+    throw error;
   }
 };
 
-// Compare Prices
-export const comparePrices = async (items) => {
+// Compare Prices (receipt items)
+export const compareReceiptPrices = async (items) => {
   try {
-    const response = await api.post('/compare/prices', { items });
+    const response = await api.post('/compare/receipt-prices', { items }, {
+      timeout: 60000, // 60 second timeout for multiple product searches
+    });
     return response.data;
   } catch (error) {
-    console.error('Error comparing prices:', error);
+    console.error('Error comparing receipt prices:', error);
     throw error;
   }
 };
