@@ -47,6 +47,9 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
+        {/* Subtitle */}
+        <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
+        
         {/* Scan Buttons Row */}
         <View style={styles.scanButtonsRow}>
           <TouchableOpacity
@@ -136,6 +139,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.xl,
     width: '100%',
+  },
+  subtitle: {
+    ...Typography.titleMedium,
+    fontSize: 24,
+    color: Colors.primary,
+    textAlign: 'center',
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.xl,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   scanButtonsRow: {
     flexDirection: 'row',
