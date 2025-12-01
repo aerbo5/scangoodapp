@@ -75,17 +75,17 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingBottom: Spacing.lg + 5,
     paddingTop: Spacing.md,
-    borderTopWidth: 2,
-    borderTopColor: Colors.lightGray,
-    backgroundColor: Colors.white,
-    shadowColor: Colors.black,
+    borderTopWidth: 1,
+    borderTopColor: '#d4e8dc', // Açık yeşil border - backgroundGreen ile uyumlu
+    backgroundColor: Colors.backgroundGreen,
+    shadowColor: Colors.primary,
     shadowOffset: {
       width: 0,
       height: -2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 10,
+    elevation: 8,
   },
   navItem: {
     alignItems: 'center',
@@ -102,23 +102,26 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: Colors.white,
+    borderWidth: 1.5,
+    borderColor: '#d4e8dc', // Açık yeşil border
   },
   navIconContainerActive: {
     backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
     shadowColor: Colors.primary,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 3,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
   },
   navIcon: {
     fontSize: 22,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: Colors.primary, // Yeşil icon
   },
   navIconActive: {
     color: Colors.white,
@@ -127,15 +130,15 @@ const styles = StyleSheet.create({
   navIconImage: {
     width: 24,
     height: 24,
-    tintColor: Colors.textSecondary,
+    tintColor: Colors.primary, // Yeşil icon
   },
   navIconImageActive: {
     tintColor: Colors.white,
   },
   navText: {
     fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '500',
+    color: Colors.primary, // Yeşil text
+    fontWeight: '600',
     marginTop: 2,
   },
   navTextActive: {
