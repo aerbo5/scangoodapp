@@ -11,13 +11,11 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
       <View style={styles.homeContent}>
         <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
-            <Image
-              source={require('../assets/image1.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require('../assets/image1.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.tagline}>{t('home.tagline')}</Text>
           <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
         </View>
@@ -53,6 +51,7 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
+    backgroundColor: Colors.backgroundGreen,
   },
   homeContent: {
     flex: 1,
@@ -64,26 +63,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 60,
   },
-  logoIcon: {
-    width: 140,
-    height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-    borderRadius: 70,
-    backgroundColor: Colors.backgroundGreen,
-    shadowColor: Colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
   logoImage: {
-    width: 100,
-    height: 100,
+    width: 120,
+    height: 120,
+    marginBottom: Spacing.xl,
   },
   tagline: {
     ...Typography.titleLarge,
