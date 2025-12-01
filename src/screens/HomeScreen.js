@@ -41,9 +41,6 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Scan Title */}
-        <Text style={styles.scanTitle}>{t('common.scan')}</Text>
-
         {/* Scan Buttons Row */}
         <View style={styles.scanButtonsRow}>
           <TouchableOpacity
@@ -125,17 +122,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
     width: '100%',
   },
-  scanTitle: {
-    ...Typography.titleLarge,
-    fontFamily: 'Sansita One',
-    fontSize: 32,
-    color: Colors.primary,
-    marginBottom: Spacing.xl,
-    textAlign: 'left',
-  },
   scanButtonsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
+    marginTop: Spacing.xl,
     marginBottom: Spacing.xl * 2,
     width: '100%',
   },
