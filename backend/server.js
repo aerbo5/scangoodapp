@@ -57,6 +57,45 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Scan Good API is running' });
 });
 
+// Debug endpoint - Check environment variables and API status
+app.get('/api/debug/env', (req, res) => {
+  const envStatus = {
+    // Check which APIs are configured
+    azureVision: {
+      configured: !!(process.env.AZURE_COMPUTER_VISION_KEY && process.env.AZURE_COMPUTER_VISION_ENDPOINT),
+      hasKey: !!process.env.AZURE_COMPUTER_VISION_KEY,
+      hasEndpoint: !!process.env.AZURE_COMPUTER_VISION_ENDPOINT,
+      endpoint: process.env.AZURE_COMPUTER_VISION_ENDPOINT ? process.env.AZURE_COMPUTER_VISION_ENDPOINT.substring(0, 30) + '...' : null,
+    },
+    googleCloudVision: {
+      configured: !!(process.env.GOOGLE_CLOUD_VISION_API_KEY || process.env.GOOGLE_CLOUD_VISION_KEY_FILE),
+      hasApiKey: !!process.env.GOOGLE_CLOUD_VISION_API_KEY,
+      hasKeyFile: !!process.env.GOOGLE_CLOUD_VISION_KEY_FILE,
+    },
+    geminiVision: {
+      configured: !!process.env.GOOGLE_GEMINI_API_KEY,
+      hasKey: !!process.env.GOOGLE_GEMINI_API_KEY,
+    },
+    googleCustomSearch: {
+      configured: !!(process.env.GOOGLE_CUSTOM_SEARCH_API_KEY && process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID),
+      hasApiKey: !!process.env.GOOGLE_CUSTOM_SEARCH_API_KEY,
+      hasEngineId: !!process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID,
+    },
+    // Server info
+    server: {
+      port: process.env.PORT || 3001,
+      nodeEnv: process.env.NODE_ENV || 'development',
+      timestamp: new Date().toISOString(),
+    },
+  };
+  
+  res.json({
+    success: true,
+    environment: envStatus,
+    message: 'Environment variables status check',
+  });
+});
+
 // Scan Receipt - OCR processing
 app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
   try {
