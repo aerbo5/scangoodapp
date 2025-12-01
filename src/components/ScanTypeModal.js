@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
+  Pressable,
 } from 'react-native';
 import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { Icons } from '../constants/icons';
@@ -20,8 +21,14 @@ const ScanTypeModal = ({ visible, onSelectReceipt, onSelectProduct, onCancel }) 
       animationType="slide"
       onRequestClose={onCancel}
     >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
+      <Pressable 
+        style={styles.modalContainer}
+        onPress={onCancel}
+      >
+        <Pressable 
+          style={styles.modalContent}
+          onPress={(e) => e.stopPropagation()}
+        >
           <Text style={styles.modalTitle}>{t('common.scan')}</Text>
           <Text style={styles.modalSubtitle}>
             {t('common.selectScanType') || 'What would you like to scan?'}
@@ -64,8 +71,8 @@ const ScanTypeModal = ({ visible, onSelectReceipt, onSelectProduct, onCancel }) 
           >
             <Text style={styles.cancelButtonText}>{t('common.cancel') || 'Cancel'}</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 };
