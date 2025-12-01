@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, ScrollView, ImageBackground } from 'react-native';
 import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { Icons } from '../constants/icons';
 import { useLanguage } from '../context/LanguageContext';
@@ -35,12 +35,18 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
 
   return (
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
+      <ImageBackground
+        source={require('../assets/image1.png')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
       >
+        <View style={styles.overlay} />
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
         {/* Scan Buttons Row */}
         <View style={styles.scanButtonsRow}>
           <TouchableOpacity
@@ -103,7 +109,8 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
             </View>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </ImageBackground>
     </Animated.View>
   );
 };
@@ -111,7 +118,15 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: Colors.backgroundGreen,
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(240, 249, 244, 0.85)', // Açık yeşil overlay - backgroundGreen ile uyumlu
   },
   scrollView: {
     flex: 1,
