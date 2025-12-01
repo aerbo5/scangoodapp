@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, TextInput, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, TextInput, Alert, ImageBackground } from 'react-native';
 import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { useLanguage } from '../context/LanguageContext';
 import { onAuthStateChange } from '../services/authService';
@@ -37,7 +37,13 @@ const LoginScreen = ({ onNavigate, fadeAnim }) => {
 
   return (
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
-      <View style={styles.loginContainer}>
+      <ImageBackground
+        source={require('../assets/image1.png')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay} />
+        <View style={styles.loginContainer}>
         {/* Logo */}
         <View style={styles.logoContainer}>
           <Image
@@ -109,7 +115,8 @@ const LoginScreen = ({ onNavigate, fadeAnim }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+        </View>
+      </ImageBackground>
     </Animated.View>
   );
 };
@@ -117,7 +124,15 @@ const LoginScreen = ({ onNavigate, fadeAnim }) => {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: Colors.backgroundGreen,
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(240, 249, 244, 0.85)', // Açık yeşil overlay - backgroundGreen ile uyumlu
   },
   loginContainer: {
     flex: 1,
