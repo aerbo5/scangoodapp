@@ -116,6 +116,8 @@ export default {
     "accountUpdated": "Account information updated successfully!"
   },
   "login": {
+    "welcome": "Welcome back!",
+    "subtitle": "Sign in to continue",
     "phoneNumber": "Phone Number",
     "google": "Continue with Google",
     "apple": "Continue with Apple",

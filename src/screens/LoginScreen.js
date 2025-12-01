@@ -46,6 +46,8 @@ const LoginScreen = ({ onNavigate, fadeAnim }) => {
             resizeMode="contain"
           />
           <Text style={styles.appName}>Scan Good</Text>
+          <Text style={styles.welcomeText}>{t('login.welcome') || 'Welcome back!'}</Text>
+          <Text style={styles.subtitleText}>{t('login.subtitle') || 'Sign in to continue'}</Text>
         </View>
 
         {/* Login Options */}
@@ -115,7 +117,7 @@ const LoginScreen = ({ onNavigate, fadeAnim }) => {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.backgroundGreen,
   },
   loginContainer: {
     flex: 1,
@@ -125,22 +127,42 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 80,
+    marginBottom: 60,
   },
   logoImage: {
-    width: 120,
-    height: 120,
-    marginBottom: Spacing.xl,
+    width: 140,
+    height: 140,
+    marginBottom: Spacing.lg,
   },
   appName: {
     ...Typography.titleLarge,
-    fontSize: 36,
+    fontFamily: 'Sansita One', // Custom font for brand name
+    fontSize: 42,
     color: Colors.primary,
     textTransform: 'capitalize',
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+    marginTop: Spacing.md,
   },
   loginOptions: {
     width: '100%',
+    maxWidth: 400,
     gap: Spacing.md,
+  },
+  welcomeText: {
+    ...Typography.body,
+    fontSize: 18,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+    textAlign: 'center',
+  },
+  subtitleText: {
+    ...Typography.body,
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
+    textAlign: 'center',
   },
   phoneInputContainer: {
     width: '100%',
@@ -148,15 +170,23 @@ const styles = StyleSheet.create({
   },
   phoneInput: {
     width: '100%',
-    height: 61,
-    backgroundColor: Colors.backgroundLight,
-    borderRadius: 20,
-    paddingHorizontal: Spacing.lg,
+    height: 64,
+    backgroundColor: Colors.white,
+    borderRadius: 24,
+    paddingHorizontal: Spacing.xl,
     ...Typography.body,
     fontSize: 16,
     color: Colors.text,
-    borderWidth: 1,
-    borderColor: Colors.lightGray,
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
+    shadowColor: Colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   loginButtonsRow: {
     flexDirection: 'row',
@@ -165,39 +195,40 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   squareLoginButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: Colors.primaryLight,
+    width: 88,
+    height: 88,
+    borderRadius: 28,
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 2.5,
     borderColor: Colors.primary,
     shadowColor: Colors.primary,
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
   squareLoginButtonPressed: {
     backgroundColor: Colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    borderColor: Colors.primaryDark,
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+    transform: [{ scale: 0.95 }],
   },
   phoneIcon: {
-    fontSize: 36,
-    color: Colors.white,
+    fontSize: 40,
   },
   googleButton: {
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.white,
     borderColor: Colors.primary,
   },
   appleButton: {
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.white,
     borderColor: Colors.primary,
   },
 });
