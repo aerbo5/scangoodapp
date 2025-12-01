@@ -118,6 +118,77 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
       });
     }
 
+    // Filter items: Remove non-grocery items if store is not a grocery store
+    const groceryStores = [
+      'walmart', 'target', 'publix', 'whole foods', 'kroger', 'safeway', 
+      'winn-dixie', 'aldi', 'costco', 'sams club', 'trader joes', 'wegmans',
+      'stop & shop', 'giant', 'food lion', 'harris teeter', 'heb', 'ralphs',
+      'vons', 'albertsons', 'fred meyer', 'qfc', 'king soopers', 'smiths'
+    ];
+    
+    const isGroceryStore = storeName && groceryStores.some(store => 
+      storeName.toLowerCase().includes(store.toLowerCase())
+    );
+    
+    // Non-grocery item patterns (restaurant, fast food, prepared foods, etc.)
+    const nonGroceryPatterns = [
+      /^(hamburger|burger|cheeseburger|big mac|whopper|quarter pounder)/i,
+      /^(pizza|pepperoni|margherita|hawaiian|meat lovers)/i,
+      /^(fries|french fries|onion rings|mozzarella sticks)/i,
+      /^(chicken nuggets|chicken tenders|chicken wings|buffalo wings)/i,
+      /^(sandwich|sub|hoagie|grinder|hero|wrap|panini)/i,
+      /^(taco|burrito|quesadilla|nachos|enchilada)/i,
+      /^(sushi|sashimi|roll|maki|nigiri)/i,
+      /^(salad bar|hot bar|deli|prepared|ready to eat)/i,
+      /^(coffee|latte|cappuccino|espresso|frappuccino)/i,
+      /^(soda|fountain drink|soft drink|energy drink)/i,
+      /^(beer|wine|liquor|alcohol|spirits|cocktail)/i,
+      /^(gas|gasoline|fuel|car wash|auto service)/i,
+      /^(tip|gratuity|service charge|delivery fee)/i,
+      /^(appetizer|entree|dessert|soup|salad)/i,
+      /^(combo|meal|value meal|happy meal)/i,
+    ];
+    
+    // Filter items based on store type
+    let filteredItems = items;
+    if (!isGroceryStore) {
+      // If not a grocery store, filter out non-grocery items (keep only grocery items)
+      console.log(`⚠️  Store "${storeName}" is not a recognized grocery store`);
+      console.log(`🔍 Filtering items to show only grocery products...`);
+      const beforeCount = filteredItems.length;
+      filteredItems = filteredItems.filter(item => {
+        const itemName = item.name.toLowerCase();
+        // Check if item matches non-grocery patterns
+        const isNonGrocery = nonGroceryPatterns.some(pattern => pattern.test(itemName));
+        if (isNonGrocery) {
+          console.log(`  ❌ Filtered out non-grocery item: "${item.name}"`);
+          return false;
+        }
+        return true;
+      });
+      const afterCount = filteredItems.length;
+      console.log(`  📊 Filtered ${beforeCount} items → ${afterCount} items (removed ${beforeCount - afterCount} non-grocery items)`);
+    } else {
+      // If grocery store, still filter out obvious non-grocery items (restaurant items, etc.)
+      const beforeCount = filteredItems.length;
+      filteredItems = filteredItems.filter(item => {
+        const itemName = item.name.toLowerCase();
+        const isNonGrocery = nonGroceryPatterns.some(pattern => pattern.test(itemName));
+        if (isNonGrocery) {
+          console.log(`  ❌ Filtered out non-grocery item from grocery store: "${item.name}"`);
+          return false;
+        }
+        return true;
+      });
+      const afterCount = filteredItems.length;
+      if (beforeCount !== afterCount) {
+        console.log(`  📊 Filtered ${beforeCount} items → ${afterCount} items (removed ${beforeCount - afterCount} non-grocery items)`);
+      }
+    }
+    
+    // Update items to filtered items
+    items = filteredItems;
+    
     // Use receipt total if available, otherwise calculate from items
     const calculatedTotal = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
     const youPaid = receiptTotal || calculatedTotal;
