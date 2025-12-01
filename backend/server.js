@@ -207,6 +207,16 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
     if (receiptDate) console.log(`  📅 Date: ${receiptDate}`);
     if (receiptTime) console.log(`  🕐 Time: ${receiptTime}`);
     
+    // Get receipt summary from parse result
+    const receiptSummary = parseResult?.receiptSummary || {
+      subtotal: null,
+      tax: null,
+      totalSales: null,
+      totalDue: null,
+      total: parseFloat(youPaid.toFixed(2)),
+      youSave: youSaveAmount ? parseFloat(youSaveAmount.toFixed(2)) : null,
+    };
+    
     res.json({
       success: true,
       items: items,
@@ -218,6 +228,7 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
       time: receiptTime || null,
       ocrUsed: !!receiptText,
       itemCount: items.length,
+      receiptSummary: receiptSummary, // All financial information (subtotal, tax, total sales, total due, total, you save) in one place
     });
   } catch (error) {
     console.error('Error scanning receipt:', error);

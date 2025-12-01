@@ -701,6 +701,10 @@ const parseReceiptText = (text) => {
   let storeAddress = null; // Extract store address
   let receiptTotal = null; // Extract total from receipt (TOTAL SALES, TOTAL, etc.)
   let youSaveAmount = null; // Extract "you save" amount
+  let subtotal = null; // Extract subtotal
+  let tax = null; // Extract tax amount
+  let totalSales = null; // Extract total sales
+  let totalDue = null; // Extract total due
   
   // Common store name patterns (appear at top of receipt)
   const storeNamePatterns = [
@@ -990,21 +994,56 @@ const parseReceiptText = (text) => {
         console.log(`  ✅ Parsed item: "${name}" - $${finalPrice.toFixed(2)} (qty: ${quantity})`);
       }
     } 
+    // Extract financial information (subtotal, tax, total sales, total due, total)
+    const priceMatch = line.match(pricePattern);
+    if (priceMatch) {
+      const amount = parseFloat(priceMatch[1]);
+      
+      // Extract subtotal
+      if (!subtotal && /^(sub\s*total|subtotal)/i.test(line)) {
+        subtotal = amount;
+        console.log(`  💰 Found subtotal: $${subtotal.toFixed(2)}`);
+        continue;
+      }
+      
+      // Extract tax
+      if (!tax && /(?:sales\s*tax|tax|tax\s*amount)/i.test(line)) {
+        tax = amount;
+        console.log(`  💰 Found tax: $${tax.toFixed(2)}`);
+        continue;
+      }
+      
+      // Extract total sales
+      if (!totalSales && /^total\s*sales/i.test(line)) {
+        totalSales = amount;
+        console.log(`  💰 Found total sales: $${totalSales.toFixed(2)}`);
+        continue;
+      }
+      
+      // Extract total due
+      if (!totalDue && /^total\s*due/i.test(line)) {
+        totalDue = amount;
+        console.log(`  💰 Found total due: $${totalDue.toFixed(2)}`);
+        continue;
+      }
+    }
+    
     // Check for total sales line (e.g., "TOTAL SALES $32.52", "TOTAL $32.52", "TOTAL DUE $32.52")
     // Prefer "TOTAL SALES" over other totals (it's the final amount before tax)
     // These will be used as "you paid" in the app
     if (!receiptTotal) {
       // First priority: "TOTAL SALES" (this is the amount before tax)
-      if (/^total\s*sales/i.test(line)) {
-        const totalMatch = line.match(pricePattern);
-        if (totalMatch) {
-          receiptTotal = parseFloat(totalMatch[1]);
-          console.log(`  💵 Found receipt total (TOTAL SALES, you paid): $${receiptTotal.toFixed(2)}`);
-          continue; // Skip this line, don't process as product
-        }
+      if (totalSales) {
+        receiptTotal = totalSales;
+        console.log(`  💵 Using total sales as receipt total: $${receiptTotal.toFixed(2)}`);
       }
-      // Second priority: Other total keywords (but skip if we already found TOTAL SALES)
-      else if (/^(total\s*due|total|sub\s*total|amount\s*due|grand\s*total)/i.test(line)) {
+      // Second priority: "TOTAL DUE"
+      else if (totalDue) {
+        receiptTotal = totalDue;
+        console.log(`  💵 Using total due as receipt total: $${receiptTotal.toFixed(2)}`);
+      }
+      // Third priority: Other total keywords
+      else if (/^(total|amount\s*due|grand\s*total)/i.test(line)) {
         const totalMatch = line.match(pricePattern);
         if (totalMatch) {
           receiptTotal = parseFloat(totalMatch[1]);
@@ -1073,6 +1112,16 @@ const parseReceiptText = (text) => {
 
   console.log(`📦 Parsed ${items.length} items from receipt`);
   
+  // Combine all financial information into a single summary object
+  const receiptSummary = {
+    subtotal: subtotal || null,
+    tax: tax || null,
+    totalSales: totalSales || null,
+    totalDue: totalDue || null,
+    total: receiptTotal || null, // Final total (you paid)
+    youSave: youSaveAmount || null,
+  };
+  
   // Return object with items and metadata
   const result = {
     items: items.length > 0 ? items : null,
@@ -1082,6 +1131,7 @@ const parseReceiptText = (text) => {
     address: storeAddress,
     youPaid: receiptTotal, // Use receipt total (TOTAL, TOTAL DUE, SUB TOTAL) as "you paid"
     youSave: youSaveAmount, // Total "you save" amount from receipt
+    receiptSummary: receiptSummary, // All financial information in one place
   };
   
   return items.length > 0 ? result : null;
