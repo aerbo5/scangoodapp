@@ -11,7 +11,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 
 // Components
-import { Header, BottomNavigation, DrawerMenu } from './src/components';
+import { Header, BottomNavigation, DrawerMenu, ScanTypeModal } from './src/components';
 
 // Screens
 import {
@@ -53,6 +53,7 @@ import { Colors } from './src/constants';
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login');
   const [menuVisible, setMenuVisible] = useState(false);
+  const [scanTypeModalVisible, setScanTypeModalVisible] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [scanMode, setScanMode] = useState('product');
   // Start with empty list - items will be added from real API calls
@@ -490,7 +491,11 @@ export default function App() {
 
         {/* Bottom Navigation - Only show if not on login screens */}
         {!isLoginScreen && currentScreen !== 'camera' && (
-          <BottomNavigation currentScreen={currentScreen} onNavigate={showScreen} />
+          <BottomNavigation 
+            currentScreen={currentScreen} 
+            onNavigate={showScreen}
+            onScanPress={() => setScanTypeModalVisible(true)}
+          />
         )}
 
         {/* Drawer Menu - Only show if not on login screens */}
@@ -500,6 +505,22 @@ export default function App() {
             onClose={() => setMenuVisible(false)}
             onNavigate={showScreen}
             currentScreen={currentScreen}
+          />
+        )}
+
+        {/* Scan Type Modal */}
+        {!isLoginScreen && (
+          <ScanTypeModal
+            visible={scanTypeModalVisible}
+            onSelectReceipt={() => {
+              setScanTypeModalVisible(false);
+              showScreen('camera', 'receipt');
+            }}
+            onSelectProduct={() => {
+              setScanTypeModalVisible(false);
+              showScreen('camera', 'product');
+            }}
+            onCancel={() => setScanTypeModalVisible(false)}
           />
         )}
     </SafeAreaView>

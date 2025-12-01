@@ -4,12 +4,17 @@ import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { Icons } from '../constants/icons';
 import { useLanguage } from '../context/LanguageContext';
 
-const BottomNavigation = ({ currentScreen, onNavigate }) => {
+const BottomNavigation = ({ currentScreen, onNavigate, onScanPress }) => {
   const { t } = useLanguage();
 
   const handleScanPress = () => {
-    // Show scan options or go to camera
-    onNavigate('camera', 'product');
+    if (onScanPress) {
+      // Show scan type selection modal
+      onScanPress();
+    } else {
+      // Fallback: go directly to camera
+      onNavigate('camera', 'product');
+    }
   };
 
   return (

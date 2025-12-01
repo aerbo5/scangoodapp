@@ -9,7 +9,11 @@ export default {
     "scan": "Scan",
     "compare": "Compare",
     "save": "Save",
-    "continue": "Continue"
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "selectScanType": "What would you like to scan?",
+    "scanReceiptDesc": "Scan a receipt to extract items",
+    "scanProductDesc": "Scan a product to find prices"
   },
   "home": {
     "tagline": "Scan Good",
@@ -126,4 +130,5 @@ export default {
     "enterPhoneNumber": "Please enter your phone number"
   }
 };
+
 
