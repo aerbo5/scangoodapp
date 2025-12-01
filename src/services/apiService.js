@@ -6,33 +6,39 @@ import { Platform } from 'react-native';
 // Production: Netlify Functions proxy or direct backend URL
 
 const getApiBaseUrl = () => {
-  // Development mode
-  if (__DEV__) {
-    // Web platform: use localhost (works in browser)
-    if (Platform.OS === 'web') {
-      return 'http://localhost:3001/api';
-    }
-    
-    // Mobile platform (Expo Go): use ngrok
-    // Ngrok URL'inizi buraya yapıştırın (sonunda /api olmalı!)
-    // Her ngrok başlatışında bu URL'yi güncelleyin!
-    return 'https://diagenetic-berry-pompously.ngrok-free.dev/api';
+  // Priority 1: Check if REACT_APP_API_URL is set (Netlify environment variable)
+  if (process.env.REACT_APP_API_URL) {
+    console.log('🌐 Using REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+    return process.env.REACT_APP_API_URL;
   }
   
-  // Production mode
-  // Check if we're on Netlify (using Netlify Functions proxy)
+  // Priority 2: Check if we're on Netlify (production)
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     
-    // If on Netlify, use relative path for Functions proxy
-    if (hostname.includes('netlify.app') || hostname.includes('localhost')) {
-      return '/api'; // Netlify Functions proxy
+    // If on Netlify, use Railway backend directly (not Functions proxy)
+    if (hostname.includes('netlify.app')) {
+      console.log('🌐 Detected Netlify, using Railway backend URL');
+      return 'https://scangoodapp-production.up.railway.app/api';
     }
   }
   
-  // Fallback: Direct backend URL (set via environment variable or hardcode)
-  // You can set this in Netlify environment variables as REACT_APP_API_URL
-  return process.env.REACT_APP_API_URL || 'https://your-backend-url.railway.app/api';
+  // Priority 3: Development mode
+  if (__DEV__) {
+    // Web platform: use Railway backend URL (production backend)
+    if (Platform.OS === 'web') {
+      console.log('🌐 Development mode (web), using Railway backend URL');
+      return 'https://scangoodapp-production.up.railway.app/api';
+    }
+    
+    // Mobile platform (Expo Go): use ngrok
+    console.log('🌐 Development mode (mobile), using ngrok URL');
+    return 'https://diagenetic-berry-pompously.ngrok-free.dev/api';
+  }
+  
+  // Fallback: Railway backend URL
+  console.log('🌐 Using fallback Railway backend URL');
+  return 'https://scangoodapp-production.up.railway.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -127,15 +133,15 @@ export const scanReceipt = async (imageUri) => {
     return response.data;
   } catch (error) {
     console.error('Error scanning receipt:', error);
-    // Return dummy data if API fails
-    return {
-      success: true,
-      items: [
-        { name: "SB Ray's BBQ Sauce", details: '18 FL Oz', price: 3.99, quantity: 1 },
-        { name: 'Produce Avocado', details: '1 Each', price: 1.25, quantity: 1 },
-      ],
-      total: 5.24,
-    };
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+    });
+    // Throw error instead of returning dummy data - let the UI handle it
+    throw error;
   }
 };
 

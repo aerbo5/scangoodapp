@@ -17,4 +17,6 @@ export { default as AboutScreen } from './AboutScreen';
 export { default as PrivacyScreen } from './PrivacyScreen';
 export { default as TermsScreen } from './TermsScreen';
 export { default as HistoryScreen } from './HistoryScreen';
+export { default as ListScreen } from './ListScreen';
+export { default as SimilarProductsScreen } from './SimilarProductsScreen';
 

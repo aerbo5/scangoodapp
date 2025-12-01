@@ -5,6 +5,8 @@ export default {
     "home": "Home",
     "history": "History",
     "favorites": "Favorites",
+    "list": "List",
+    "profile": "Profile",
     "settings": "Settings",
     "scan": "Scan",
     "compare": "Compare",
@@ -132,6 +134,22 @@ export default {
     "error": "Error",
     "invalidCode": "Please enter a valid 6-digit code",
     "enterPhoneNumber": "Please enter your phone number"
+  },
+  "list": {
+    "title": "Your List",
+    "noItems": "No items yet",
+    "scanReceipt": "Scan a receipt to get started",
+    "youPaid": "You Paid",
+    "originalTotal": "Original Total",
+    "youSave": "You Save",
+    "similarProduct": "Similar Product",
+    "openLink": "Open Link"
+  },
+  "similarProducts": {
+    "originalProduct": "Original Product",
+    "similarProducts": "Similar Products",
+    "selectAlternative": "Select an alternative to add to your list",
+    "noSimilarProducts": "No similar products found"
   }
 };
 

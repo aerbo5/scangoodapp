@@ -34,6 +34,8 @@ import {
   PrivacyScreen,
   TermsScreen,
   HistoryScreen,
+  ListScreen,
+  SimilarProductsScreen,
 } from './src/screens';
 
 // Context
@@ -121,7 +123,9 @@ export default function App() {
     if (data) {
       if (screen === 'productDetails') {
         setSelectedProduct(data);
-      } else if (screen === 'shoppingList' && Array.isArray(data)) {
+      } else if (screen === 'similarProducts') {
+        setSelectedProduct(data);
+      } else if ((screen === 'shoppingList' || screen === 'list') && Array.isArray(data)) {
         // If data is an array, it's items from recent scan
         setScannedItems(data);
       } else {
@@ -186,7 +190,7 @@ export default function App() {
           };
           await saveReceiptToHistory(historyEntry);
           
-          showScreen('shoppingList');
+          showScreen('list');
         } else {
           console.error('❌ Receipt scan failed:', result.error || 'No items found');
           Alert.alert(
@@ -483,6 +487,28 @@ export default function App() {
             fadeAnim={fadeAnim}
           />
         );
+      case 'list':
+        return (
+          <ListScreen
+            scannedItems={scannedItems}
+            onNavigate={showScreen}
+            fadeAnim={fadeAnim}
+            calculateTotal={handleCalculateTotal}
+            originalTotal={priceComparisonData?.originalTotal}
+            youSave={handleGetSavings()}
+          />
+        );
+      case 'similarProducts':
+        return (
+          <SimilarProductsScreen
+            product={selectedProduct}
+            onNavigate={showScreen}
+            fadeAnim={fadeAnim}
+            onAddToList={(item) => {
+              setScannedItems(prev => [...prev, item]);
+            }}
+          />
+        );
       default:
         return <HomeScreen onNavigate={showScreen} fadeAnim={fadeAnim} />;
     }
@@ -522,6 +548,10 @@ export default function App() {
             onClose={() => setMenuVisible(false)}
             onNavigate={showScreen}
             currentScreen={currentScreen}
+            onScanPress={() => {
+              setMenuVisible(false);
+              setScanTypeModalVisible(true);
+            }}
           />
         )}
 

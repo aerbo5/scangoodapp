@@ -7,7 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(300, SCREEN_WIDTH * 0.85); // Max 300px veya ekran genişliğinin %85'i
 
-const DrawerMenu = ({ visible, onClose, onNavigate, currentScreen }) => {
+const DrawerMenu = ({ visible, onClose, onNavigate, currentScreen, onScanPress }) => {
   const { t } = useLanguage();
   const slideAnim = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
 
@@ -32,10 +32,13 @@ const DrawerMenu = ({ visible, onClose, onNavigate, currentScreen }) => {
     onClose();
   };
 
+
   const menuItems = [
     { key: 'home', icon: Icons.home, label: t('common.home'), screen: 'home' },
-    { key: 'history', icon: Icons.history, label: t('common.history'), screen: 'shoppingList' },
-    { key: 'favorites', icon: Icons.favorites, label: t('common.favorites'), screen: 'favorites' },
+    { key: 'scan', icon: Icons.scan, label: t('common.scan'), screen: 'home', isScan: true },
+    { key: 'list', icon: '📋', label: t('common.list') || 'List', screen: 'list' },
+    { key: 'history', icon: Icons.history, label: t('common.history'), screen: 'history' },
+    { key: 'profile', icon: '👤', label: t('common.profile') || 'Profile', screen: 'profile' },
   ];
 
   return (
@@ -72,11 +75,18 @@ const DrawerMenu = ({ visible, onClose, onNavigate, currentScreen }) => {
             {menuItems.map((item) => {
               const isActive = currentScreen === item.screen;
               const isHistory = item.key === 'history';
+              const isScan = item.isScan;
               return (
                 <TouchableOpacity
                   key={item.key}
                   style={[styles.menuItem, isActive && styles.menuItemActive]}
-                  onPress={() => handleMenuPress(item.screen, item.mode)}
+                  onPress={() => {
+                    if (isScan && onScanPress) {
+                      onScanPress();
+                    } else {
+                      handleMenuPress(item.screen, item.mode);
+                    }
+                  }}
                   activeOpacity={1}
                 >
                   {isHistory ? (

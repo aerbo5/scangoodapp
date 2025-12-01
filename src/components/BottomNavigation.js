@@ -51,16 +51,16 @@ const BottomNavigation = ({ currentScreen, onNavigate, onScanPress }) => {
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.navItem, currentScreen === 'favorites' && styles.navItemActive]}
-        onPress={() => onNavigate('favorites')}
+        style={[styles.navItem, currentScreen === 'list' && styles.navItemActive]}
+        onPress={() => onNavigate('list')}
       >
-        <View style={[styles.navIconContainer, currentScreen === 'favorites' && styles.navIconContainerActive]}>
-          <Text style={[styles.navIcon, currentScreen === 'favorites' && styles.navIconActive]}>
-            {Icons.favorites}
+        <View style={[styles.navIconContainer, currentScreen === 'list' && styles.navIconContainerActive]}>
+          <Text style={[styles.navIcon, currentScreen === 'list' && styles.navIconActive]}>
+            📋
           </Text>
         </View>
-        <Text style={[styles.navText, currentScreen === 'favorites' && styles.navTextActive]}>
-          {t('common.favorites')}
+        <Text style={[styles.navText, currentScreen === 'list' && styles.navTextActive]}>
+          {t('common.list') || 'List'}
         </Text>
       </TouchableOpacity>
     </View>

@@ -5,6 +5,8 @@ export default {
     "home": "Inicio",
     "history": "Historial",
     "favorites": "Favoritos",
+    "list": "Lista",
+    "profile": "Perfil",
     "settings": "Configuración",
     "scan": "Escanear",
     "compare": "Comparar",
@@ -128,6 +130,22 @@ export default {
     "error": "Error",
     "invalidCode": "Por favor ingresa un código válido de 6 dígitos",
     "enterPhoneNumber": "Por favor ingresa tu número de teléfono"
+  },
+  "list": {
+    "title": "Tu Lista",
+    "noItems": "Aún no hay artículos",
+    "scanReceipt": "Escanear un recibo para comenzar",
+    "youPaid": "Pagaste",
+    "originalTotal": "Total Original",
+    "youSave": "Ahorras",
+    "similarProduct": "Producto Similar",
+    "openLink": "Abrir Enlace"
+  },
+  "similarProducts": {
+    "originalProduct": "Producto Original",
+    "similarProducts": "Productos Similares",
+    "selectAlternative": "Selecciona una alternativa para agregar a tu lista",
+    "noSimilarProducts": "No se encontraron productos similares"
   }
 };
 
