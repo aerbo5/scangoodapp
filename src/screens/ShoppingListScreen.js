@@ -10,6 +10,13 @@ const ShoppingListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
       <ScrollView style={styles.scrollContent}>
         <View style={styles.shoppingList}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => onNavigate('home')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.backButtonText}>← {t('common.back') || 'Back'}</Text>
+          </TouchableOpacity>
           <Text style={styles.listTitle}>{t('shoppingList.yourShoppingList')}</Text>
 
           {scannedItems.length === 0 ? (
@@ -78,6 +85,15 @@ const styles = StyleSheet.create({
   },
   shoppingList: {
     padding: Spacing.lg,
+  },
+  backButton: {
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   listTitle: {
     fontSize: 28,

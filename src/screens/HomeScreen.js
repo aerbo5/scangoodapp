@@ -82,7 +82,7 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
                   style={styles.recentScanItem}
                   onPress={() => {
                     if (scan.items) {
-                      onNavigate('shoppingList');
+                      onNavigate('shoppingList', null, scan.items);
                     }
                   }}
                   activeOpacity={0.7}

@@ -121,6 +121,9 @@ export default function App() {
     if (data) {
       if (screen === 'productDetails') {
         setSelectedProduct(data);
+      } else if (screen === 'shoppingList' && Array.isArray(data)) {
+        // If data is an array, it's items from recent scan
+        setScannedItems(data);
       } else {
         setStoreDetailsData(data);
       }
