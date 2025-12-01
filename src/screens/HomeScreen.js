@@ -13,6 +13,7 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        bounces={false}
       >
         <View style={styles.logoContainer}>
           <Image
@@ -59,6 +60,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    width: '100%',
   },
   scrollContent: {
     flexGrow: 1,
@@ -66,7 +68,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.xl,
-    minHeight: '100%',
+    width: '100%',
   },
   logoContainer: {
     alignItems: 'center',
