@@ -86,9 +86,6 @@ const styles = StyleSheet.create({
     color: Colors.primary, // Koyu yeşil
     marginBottom: Spacing.sm,
     textTransform: 'capitalize',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 3,
   },
   subtitle: {
     ...Typography.body,
