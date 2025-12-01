@@ -100,6 +100,20 @@ export default function App() {
     }).start();
   }, [currentScreen]);
 
+  // Load Google Fonts for web platform
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      // Check if font is already loaded
+      const fontLink = document.querySelector('link[href*="fonts.googleapis.com"]');
+      if (!fontLink) {
+        const link = document.createElement('link');
+        link.href = 'https://fonts.googleapis.com/css2?family=Sansita+One&display=swap';
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+      }
+    }
+  }, []);
+
   const showScreen = (screen, mode = null, data = null) => {
     fadeAnim.setValue(0);
     setCurrentScreen(screen);
