@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Image, Linking, Platform } from 'react-native';
 import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -8,6 +8,21 @@ const ProfileScreen = ({ onNavigate, fadeAnim }) => {
 
   const handleLanguageChange = (lang) => {
     changeLanguage(lang);
+  };
+
+  const handleExternalLink = async (url) => {
+    try {
+      if (Platform.OS === 'web') {
+        window.open(url, '_blank');
+      } else {
+        const canOpen = await Linking.canOpenURL(url);
+        if (canOpen) {
+          await Linking.openURL(url);
+        }
+      }
+    } catch (error) {
+      console.error('Error opening URL:', error);
+    }
   };
 
   const profileMenuItems = [
@@ -110,7 +125,14 @@ const ProfileScreen = ({ onNavigate, fadeAnim }) => {
                 key={item.key}
                 style={styles.menuItem}
                 onPress={() => {
-                  onNavigate(item.screen);
+                  // Handle external links for privacy and terms
+                  if (item.key === 'privacy') {
+                    handleExternalLink('https://scangoodapp.com/privacy-policy');
+                  } else if (item.key === 'terms') {
+                    handleExternalLink('https://scangoodapp.com/terms-and-conditions');
+                  } else {
+                    onNavigate(item.screen);
+                  }
                 }}
               >
                 <View style={styles.menuItemLeft}>
