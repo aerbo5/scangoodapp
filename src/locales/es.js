@@ -17,7 +17,7 @@ export default {
   },
   "home": {
     "tagline": "Scan Good",
-    "subtitle": "Escanear. Comparar. Ahorrar.",
+    "subtitle": "Escanear → Comparar → Ahorrar",
     "scanReceipt": "Escanear Recibo",
     "scanBarcode": "Escanear Código de Barras",
     "scanProduct": "Escanear Producto"
