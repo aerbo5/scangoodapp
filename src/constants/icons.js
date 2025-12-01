@@ -1,7 +1,7 @@
 // Modern, design-focused icons using Unicode characters
 export const Icons = {
   // Navigation
-  scan: '📷', // Camera/scan icon
+  scan: '▦', // Barcode-like scan icon
   history: '✓', // Check mark for history
   settings: '⚙', // Settings gear
   home: '⌂', // Modern home icon

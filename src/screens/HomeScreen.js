@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Image, ScrollView } from 'react-native';
 import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { Icons } from '../constants/icons';
 import { useLanguage } from '../context/LanguageContext';
@@ -9,7 +9,11 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
 
   return (
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
-      <View style={styles.homeContent}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.logoContainer}>
           <Image
             source={require('../assets/image1.png')}
@@ -43,7 +47,7 @@ const HomeScreen = ({ onNavigate, fadeAnim }) => {
             <Text style={styles.actionBtnText}>{t('home.scanProduct')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </Animated.View>
   );
 };
@@ -53,11 +57,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.backgroundGreen,
   },
-  homeContent: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.xl,
+    minHeight: '100%',
   },
   logoContainer: {
     alignItems: 'center',
