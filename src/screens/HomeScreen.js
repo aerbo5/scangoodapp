@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     ...Typography.titleLarge,
+    fontFamily: 'Sansita One', // Custom font for brand name
     fontSize: 36,
     color: Colors.primary, // Koyu yeşil
     marginBottom: Spacing.sm,
