@@ -145,14 +145,14 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.sm,
     alignSelf: 'flex-start',
   },
   compareBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.primary,
+    color: Colors.white,
   },
   totalPaid: {
     marginVertical: Spacing.xl,
