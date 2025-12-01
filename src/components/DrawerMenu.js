@@ -153,6 +153,7 @@ const styles = StyleSheet.create({
   },
   brandName: {
     ...Typography.titleSmall,
+    fontFamily: 'Sansita One', // Custom font for brand name
     color: Colors.primary, // Koyu yeşil
     textTransform: 'capitalize',
     textShadowColor: 'rgba(0, 0, 0, 0.1)',
