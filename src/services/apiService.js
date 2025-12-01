@@ -6,42 +6,49 @@ import { Platform } from 'react-native';
 // Production: Netlify Functions proxy or direct backend URL
 
 const getApiBaseUrl = () => {
-  // Priority 1: Check if REACT_APP_API_URL is set (Netlify environment variable)
-  if (process.env.REACT_APP_API_URL) {
-    console.log('🌐 Using REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
-    return process.env.REACT_APP_API_URL;
-  }
-  
-  // Priority 2: Check if we're on Netlify (production)
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    
-    // If on Netlify, use Railway backend directly (not Functions proxy)
-    if (hostname.includes('netlify.app')) {
-      console.log('🌐 Detected Netlify, using Railway backend URL');
-      return 'https://scangoodapp-production.up.railway.app/api';
-    }
-  }
-  
-  // Priority 3: Development mode
-  if (__DEV__) {
-    // Web platform: use Railway backend URL (production backend)
-    if (Platform.OS === 'web') {
-      console.log('🌐 Development mode (web), using Railway backend URL');
-      return 'https://scangoodapp-production.up.railway.app/api';
+  try {
+    // Priority 1: Check if REACT_APP_API_URL is set (Netlify environment variable)
+    if (process.env.REACT_APP_API_URL) {
+      console.log('🌐 Using REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+      return process.env.REACT_APP_API_URL;
     }
     
-    // Mobile platform (Expo Go): use ngrok
-    console.log('🌐 Development mode (mobile), using ngrok URL');
-    return 'https://diagenetic-berry-pompously.ngrok-free.dev/api';
+    // Priority 2: Check if we're on Netlify (production)
+    if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+      const hostname = window.location.hostname;
+      
+      // If on Netlify, use Railway backend directly (not Functions proxy)
+      if (hostname.includes('netlify.app')) {
+        console.log('🌐 Detected Netlify, using Railway backend URL');
+        return 'https://scangoodapp-production.up.railway.app/api';
+      }
+    }
+    
+    // Priority 3: Development mode
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      // Web platform: use Railway backend URL (production backend)
+      if (Platform.OS === 'web') {
+        console.log('🌐 Development mode (web), using Railway backend URL');
+        return 'https://scangoodapp-production.up.railway.app/api';
+      }
+      
+      // Mobile platform (Expo Go): use ngrok
+      console.log('🌐 Development mode (mobile), using ngrok URL');
+      return 'https://diagenetic-berry-pompously.ngrok-free.dev/api';
+    }
+    
+    // Fallback: Railway backend URL
+    console.log('🌐 Using fallback Railway backend URL');
+    return 'https://scangoodapp-production.up.railway.app/api';
+  } catch (error) {
+    console.error('❌ Error in getApiBaseUrl:', error);
+    // Safe fallback
+    return 'https://scangoodapp-production.up.railway.app/api';
   }
-  
-  // Fallback: Railway backend URL
-  console.log('🌐 Using fallback Railway backend URL');
-  return 'https://scangoodapp-production.up.railway.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
