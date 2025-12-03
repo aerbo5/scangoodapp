@@ -9,6 +9,7 @@ const visionService = require('./services/visionService');
 const productService = require('./services/productService');
 const storeService = require('./services/storeService');
 const productSearchService = require('./services/productSearchService');
+const publixScraperService = require('./services/publixScraperService');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -703,8 +704,20 @@ app.post('/api/compare/product-prices', async (req, res) => {
 
     console.log(`🔍 Comparing prices for product: ${productName}`);
     
-    // Search product in stores
+    // Search product in stores (Google Custom Search)
     const productLinks = await productSearchService.searchProductLinks(productName, productName);
+    
+    // Also try Publix web scraping
+    let publixPrice = null;
+    try {
+      console.log(`🛒 Trying Publix web scraping for: ${productName}`);
+      publixPrice = await publixScraperService.getPublixPrice(productName);
+      if (publixPrice) {
+        console.log(`✅ Found Publix price: $${publixPrice.price.toFixed(2)}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Publix scraping failed for "${productName}":`, error.message);
+    }
     
     // Extract prices from exact matches
     const prices = [];
@@ -719,6 +732,26 @@ app.post('/api/compare/product-prices', async (req, res) => {
           });
         }
       });
+    }
+    
+    // Add Publix price if found
+    if (publixPrice && publixPrice.price > 0) {
+      // Check if Publix already exists in prices (from Google Search)
+      const existingPublix = prices.find(p => p.store.toLowerCase() === 'publix');
+      if (!existingPublix) {
+        prices.push({
+          store: 'Publix',
+          price: publixPrice.price,
+          link: publixPrice.link,
+          title: publixPrice.productName,
+          source: 'web-scraping',
+        });
+      } else if (publixPrice.price < existingPublix.price) {
+        // Use scraped price if it's cheaper
+        existingPublix.price = publixPrice.price;
+        existingPublix.link = publixPrice.link;
+        existingPublix.source = 'web-scraping';
+      }
     }
     
     // Find cheapest price
@@ -772,6 +805,18 @@ app.post('/api/compare/receipt-prices', async (req, res) => {
           exactMatches: productLinks.exactMatches?.length || 0,
           similarProducts: productLinks.similarProducts?.length || 0,
         });
+        
+        // Also try Publix web scraping
+        let publixPrice = null;
+        try {
+          console.log(`  🛒 Trying Publix web scraping for: ${productName}`);
+          publixPrice = await publixScraperService.getPublixPrice(productName);
+          if (publixPrice) {
+            console.log(`  ✅ Found Publix price: $${publixPrice.price.toFixed(2)}`);
+          }
+        } catch (error) {
+          console.warn(`  ⚠️ Publix scraping failed for "${productName}":`, error.message);
+        }
         
         // Extract prices from exact matches AND similar products (muadil ürünler)
         const itemStorePrices = {}; // { store: price }
@@ -833,6 +878,43 @@ app.post('/api/compare/receipt-prices', async (req, res) => {
               }
             }
           });
+        }
+        
+        // Add Publix price if found (and not already in results or cheaper)
+        if (publixPrice && publixPrice.price > 0) {
+          const store = 'Publix';
+          if (!itemStorePrices[store] || publixPrice.price < itemStorePrices[store]) {
+            itemStorePrices[store] = publixPrice.price;
+            
+            if (!storePricesMap[store]) {
+              storePricesMap[store] = {
+                store: store,
+                items: [],
+                total: 0,
+              };
+            }
+            // Update or add Publix item
+            const existingItem = storePricesMap[store].items.find(i => i.name === productName);
+            if (existingItem) {
+              existingItem.price = publixPrice.price;
+              existingItem.link = publixPrice.link;
+              existingItem.title = publixPrice.productName;
+              // Recalculate total for this store
+              storePricesMap[store].total = storePricesMap[store].items.reduce((sum, item) => 
+                sum + (item.price * (item.quantity || 1)), 0
+              );
+            } else {
+              storePricesMap[store].items.push({
+                name: productName,
+                price: publixPrice.price,
+                quantity: item.quantity || 1,
+                link: publixPrice.link,
+                title: publixPrice.productName,
+                source: 'web-scraping',
+              });
+              storePricesMap[store].total += publixPrice.price * (item.quantity || 1);
+            }
+          }
         }
         
         // Store item details for breakdown
