@@ -10,6 +10,7 @@ const productService = require('./services/productService');
 const storeService = require('./services/storeService');
 const productSearchService = require('./services/productSearchService');
 const publixScraperService = require('./services/publixScraperService');
+const aldiScraperService = require('./services/aldiScraperService');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -108,6 +109,8 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
     let storeAddress = null;
     let receiptTotal = null;
     let youSaveAmount = null;
+    let ignoredElements = null;
+    let parseResult = null;
 
     console.log('🧾 Receipt scan request received');
     
@@ -123,7 +126,7 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
       
       if (receiptText) {
         console.log('✅ OCR text extracted, length:', receiptText.length);
-        const parseResult = visionService.parseReceiptText(receiptText);
+        parseResult = visionService.parseReceiptText(receiptText);
         if (parseResult) {
           items = parseResult.items;
           receiptDate = parseResult.date;
@@ -132,6 +135,7 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
           storeAddress = parseResult.address;
           receiptTotal = parseResult.youPaid; // Use receipt total as "you paid"
           youSaveAmount = parseResult.youSave; // "You save" amount
+          ignoredElements = parseResult.ignoredElements; // SECTION B: Ignored elements
         }
       } else {
         console.log('⚠️ No text extracted from receipt');
@@ -259,7 +263,15 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
     
     res.json({
       success: true,
-      items: items,
+      items: items, // SECTION A: Grocery Items Only (Clean List)
+      ignoredElements: ignoredElements || { // SECTION B: Ignored Elements
+        paymentInfo: [],
+        storeInfo: [],
+        metadata: [],
+        footerCoupons: [],
+        nonItem: [],
+        unclear: [],
+      },
       youPaid: parseFloat(youPaid.toFixed(2)), // Total, Total Due, Sub Total -> You Paid
       youSave: youSaveAmount ? parseFloat(youSaveAmount.toFixed(2)) : null,
       store: storeName || 'Unknown Store',
@@ -719,6 +731,18 @@ app.post('/api/compare/product-prices', async (req, res) => {
       console.warn(`⚠️ Publix scraping failed for "${productName}":`, error.message);
     }
     
+    // Also try Aldi web scraping
+    let aldiPrice = null;
+    try {
+      console.log(`🛒 Trying Aldi web scraping for: ${productName}`);
+      aldiPrice = await aldiScraperService.getAldiPrice(productName);
+      if (aldiPrice) {
+        console.log(`✅ Found Aldi price: $${aldiPrice.price.toFixed(2)}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ Aldi scraping failed for "${productName}":`, error.message);
+    }
+    
     // Extract prices from exact matches
     const prices = [];
     if (productLinks.exactMatches && productLinks.exactMatches.length > 0) {
@@ -751,6 +775,28 @@ app.post('/api/compare/product-prices', async (req, res) => {
         existingPublix.price = publixPrice.price;
         existingPublix.link = publixPrice.link;
         existingPublix.source = 'web-scraping';
+      }
+    }
+    
+    // Add Aldi price if found
+    if (aldiPrice && aldiPrice.price > 0) {
+      // Check if Aldi already exists in prices (from Google Search)
+      const existingAldi = prices.find(p => p.store.toLowerCase() === 'aldi');
+      if (!existingAldi) {
+        prices.push({
+          store: 'Aldi',
+          price: aldiPrice.price,
+          link: aldiPrice.link,
+          title: aldiPrice.productName,
+          source: 'web-scraping',
+          attributes: aldiPrice.attributes, // Include product attributes
+        });
+      } else if (aldiPrice.price < existingAldi.price) {
+        // Use scraped price if it's cheaper
+        existingAldi.price = aldiPrice.price;
+        existingAldi.link = aldiPrice.link;
+        existingAldi.source = 'web-scraping';
+        existingAldi.attributes = aldiPrice.attributes;
       }
     }
     
@@ -816,6 +862,18 @@ app.post('/api/compare/receipt-prices', async (req, res) => {
           }
         } catch (error) {
           console.warn(`  ⚠️ Publix scraping failed for "${productName}":`, error.message);
+        }
+        
+        // Also try Aldi web scraping
+        let aldiPrice = null;
+        try {
+          console.log(`  🛒 Trying Aldi web scraping for: ${productName}`);
+          aldiPrice = await aldiScraperService.getAldiPrice(productName);
+          if (aldiPrice) {
+            console.log(`  ✅ Found Aldi price: $${aldiPrice.price.toFixed(2)}`);
+          }
+        } catch (error) {
+          console.warn(`  ⚠️ Aldi scraping failed for "${productName}":`, error.message);
         }
         
         // Extract prices from exact matches AND similar products (muadil ürünler)
@@ -913,6 +971,45 @@ app.post('/api/compare/receipt-prices', async (req, res) => {
                 source: 'web-scraping',
               });
               storePricesMap[store].total += publixPrice.price * (item.quantity || 1);
+            }
+          }
+        }
+        
+        // Add Aldi price if found (and not already in results or cheaper)
+        if (aldiPrice && aldiPrice.price > 0) {
+          const store = 'Aldi';
+          if (!itemStorePrices[store] || aldiPrice.price < itemStorePrices[store]) {
+            itemStorePrices[store] = aldiPrice.price;
+            
+            if (!storePricesMap[store]) {
+              storePricesMap[store] = {
+                store: store,
+                items: [],
+                total: 0,
+              };
+            }
+            // Update or add Aldi item
+            const existingItem = storePricesMap[store].items.find(i => i.name === productName);
+            if (existingItem) {
+              existingItem.price = aldiPrice.price;
+              existingItem.link = aldiPrice.link;
+              existingItem.title = aldiPrice.productName;
+              existingItem.attributes = aldiPrice.attributes;
+              // Recalculate total for this store
+              storePricesMap[store].total = storePricesMap[store].items.reduce((sum, item) => 
+                sum + (item.price * (item.quantity || 1)), 0
+              );
+            } else {
+              storePricesMap[store].items.push({
+                name: productName,
+                price: aldiPrice.price,
+                quantity: item.quantity || 1,
+                link: aldiPrice.link,
+                title: aldiPrice.productName,
+                attributes: aldiPrice.attributes, // Include product attributes
+                source: 'web-scraping',
+              });
+              storePricesMap[store].total += aldiPrice.price * (item.quantity || 1);
             }
           }
         }

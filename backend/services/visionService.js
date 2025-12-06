@@ -685,6 +685,8 @@ const detectProductLabels = async (imageBuffer) => {
 };
 
 // Parse receipt text into items
+// FOLLOWS STRICT RULES: Only extract grocery items, ignore everything else
+// Returns: { items: [...], ignoredElements: {...}, metadata: {...} }
 const parseReceiptText = (text) => {
   if (!text) return null;
 
@@ -692,69 +694,130 @@ const parseReceiptText = (text) => {
   console.log('📄 First 500 chars:', text.substring(0, 500));
 
   const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-  const items = [];
+  const items = []; // SECTION A: Grocery Items Only
+  const ignoredElements = {
+    paymentInfo: [],
+    storeInfo: [],
+    metadata: [],
+    footerCoupons: [],
+    nonItem: [],
+    unclear: [],
+  };
   
-  // Extract receipt metadata
+  // Metadata (for backward compatibility with existing API)
   let receiptDate = null;
   let receiptTime = null;
   let storeName = null;
-  let storeAddress = null; // Extract store address
-  let receiptTotal = null; // Extract total from receipt (TOTAL SALES, TOTAL, etc.)
-  let youSaveAmount = null; // Extract "you save" amount
-  let subtotal = null; // Extract subtotal
-  let tax = null; // Extract tax amount
-  let totalSales = null; // Extract total sales
-  let totalDue = null; // Extract total due
+  let storeAddress = null;
+  let receiptTotal = null;
+  let youSaveAmount = null;
+  let subtotal = null;
+  let tax = null;
+  let totalSales = null;
+  let totalDue = null;
   
-  // Common store name patterns (appear at top of receipt)
+  // ========== PATTERNS FOR IGNORING ELEMENTS ==========
+  
+  // Payment info patterns (MUST IGNORE)
+  const paymentInfoPatterns = [
+    /(?:visa|mastercard|amex|american\s*express|discover)/i,
+    /card\s*#/i,
+    /cardholder/i,
+    /debit\s*card/i,
+    /credit\s*card/i,
+    /expires?/i,
+    /authorization/i,
+    /auth\s*code/i,
+    /approval/i,
+    /approved/i,
+    /transaction\s*id/i,
+    /ref\s*#/i,
+    /account\s*#/i,
+    /pin/i,
+    /signature/i,
+    /last\s*4\s*digits/i,
+    /\*\*\*\*\s*\d{4}/, // Masked card number
+  ];
+  
+  // Store info patterns (MUST IGNORE)
+  const storeInfoPatterns = [
+    /^(walmart|target|publix|whole\s*foods|kroger|safeway|winn.?dixie|aldi|costco|sams\s*club|trader\s*joes?)/i,
+    /store\s*#/i,
+    /register/i,
+    /cashier/i,
+    /phone/i,
+    /^\d{3}-\d{3}-\d{4}/, // Phone numbers
+    /\b(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|cir|court|ct)\b/i,
+    /survey/i,
+    /logo/i,
+    /slogan/i,
+  ];
+  
+  // Store name patterns (for extraction but mark as ignored)
   const storeNamePatterns = [
     /^(walmart|target|publix|whole\s*foods|kroger|safeway|winn.?dixie|aldi|costco|sams\s*club|trader\s*joes?)/i,
   ];
   
-  // Date patterns: MM/DD/YYYY, MM/DD/YY, DD/MM/YYYY, etc.
+  // Metadata patterns (MUST IGNORE)
+  const metadataPatterns = [
+    /(\d{1,2}\/\d{1,2}\/\d{2,4})/, // Date
+    /(\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?)/i, // Time
+    /transaction\s*#/i,
+    /receipt\s*#/i,
+    /^#\d+/, // Receipt numbers
+    /barcode/i,
+    /qr\s*code/i,
+    /loyalty/i,
+    /points/i,
+    /balance/i,
+    /rewards/i,
+  ];
+  
+  // Footer/coupons patterns (MUST IGNORE)
+  const footerCouponPatterns = [
+    /thank\s*you/i,
+    /return\s*policy/i,
+    /survey\s*code/i,
+    /coupon/i,
+    /promotion/i,
+    /marketing/i,
+    /visit\s*us/i,
+    /website/i,
+    /www\./i,
+    /http/i,
+  ];
+  
+  // Non-item patterns (MUST IGNORE)
+  const nonItemPatterns = [
+    /^(total|subtotal|tax|discount|change|cash|card|receipt|net\s*sales|sales\s*tax)/i,
+    /return\s*value/i,
+    /total\s*fsa/i,
+    /total\s*rx/i,
+    /approved\s*fsa/i,
+    /approved\s*hra/i,
+    /change\s*due/i,
+    /cash\s*back/i,
+  ];
+  
+  // Date/Time patterns (for extraction but mark as ignored)
   const datePattern = /(\d{1,2}\/\d{1,2}\/\d{2,4})/;
-  // Time patterns: HH:MM, HH:MM:SS, HH:MM AM/PM
   const timePattern = /(\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?)/i;
   
   // Price pattern - matches $3.99 or 3.99
   const pricePattern = /\$?(\d+\.\d{2})/;
   
-  // Skip patterns for non-product lines (weight info, headers, payment info, etc.)
+  // Combined skip patterns (for quick checking)
   const skipPatterns = [
-    /^(total|subtotal|tax|discount|change|cash|card|receipt|thank|address|phone|inv|trs|net\s*sales|sales\s*tax|return\s*value|auth\s*code|debit\s*card|credit\s*card|total\s*fsa|total\s*rx|approved\s*fsa|approved\s*hra)/i,
-    /^#\d+/,                                 // Receipt numbers
-    /^markdown:/i,                           // Markdown/discount lines (we'll handle separately)
-    /tare:/i,                                // Tare weight (anywhere in line)
-    /^\d{3}-\d{3}-\d{4}/,                   // Phone numbers
+    ...paymentInfoPatterns,
+    ...storeInfoPatterns,
+    ...metadataPatterns,
+    ...footerCouponPatterns,
+    ...nonItemPatterns,
+    /^markdown:/i,                           // Markdown lines (handled separately for discounts)
+    /tare:/i,                                // Tare weight
     /^\d+\.\d+\s*(?:lb|lbs|kg|g|oz)\s*@/i,  // Weight info like "0.21 lb @"
     /\[.*tare.*\]/i,                         // [Tare: ...] brackets
     /^(lb|lbs|kg|g|oz)$/i,                  // Just weight units
-    /net\s*sales/i,                          // Net sales
-    /sales\s*tax/i,                          // Sales tax
-    /credit\s*card/i,                        // Credit card info
-    /debit\s*card/i,                         // Debit card info
-    /card\s*#/i,                             // Card number
-    /cardholder/i,                           // Cardholder name
-    /expires?/i,                             // Expiration date
-    /authorization/i,                         // Authorization codes
-    /auth\s*code/i,                          // Auth code
-    /approval/i,                             // Approval codes
-    /transaction\s*id/i,                      // Transaction IDs
-    /ref\s*#/i,                              // Reference numbers
-    /account\s*#/i,                          // Account numbers
-    /pin/i,                                  // PIN numbers
-    /signature/i,                            // Signature lines
-    /change\s*due/i,                         // Change due
-    /cash\s*back/i,                          // Cash back
-    /return\s*value/i,                        // Return value
-    /total\s*fsa\s*items/i,                  // Total FSA items
-    /total\s*rx\s*items/i,                   // Total RX items
-    /total\s*fsa\s*and\s*rx\s*items/i,       // Total FSA and RX items
-    /approved\s*fsa/i,                        // Approved FSA amount
-    /approved\s*hra/i,                        // Approved HRA amount
-    /.*tax.*/i,                              // Any line containing "tax"
-    /.*debit.*card.*/i,                      // Any line containing "debit" and "card"
-    /.*credit.*card.*/i,                     // Any line containing "credit" and "card"
   ];
   
   // Check if line is weight/measurement info (not a product)
@@ -834,10 +897,52 @@ const parseReceiptText = (text) => {
     }
   }
   
-  // Second pass: Extract products
+  // Helper function to categorize and add ignored elements
+  const addIgnoredElement = (line, category) => {
+    if (!ignoredElements[category].includes(line)) {
+      ignoredElements[category].push(line);
+    }
+  };
+  
+  // Helper function to check if line should be ignored
+  const shouldIgnore = (line) => {
+    // Check payment info
+    if (paymentInfoPatterns.some(p => p.test(line))) {
+      addIgnoredElement(line, 'paymentInfo');
+      return true;
+    }
+    // Check store info
+    if (storeInfoPatterns.some(p => p.test(line))) {
+      addIgnoredElement(line, 'storeInfo');
+      return true;
+    }
+    // Check metadata
+    if (metadataPatterns.some(p => p.test(line))) {
+      addIgnoredElement(line, 'metadata');
+      return true;
+    }
+    // Check footer/coupons
+    if (footerCouponPatterns.some(p => p.test(line))) {
+      addIgnoredElement(line, 'footerCoupons');
+      return true;
+    }
+    // Check non-item
+    if (nonItemPatterns.some(p => p.test(line))) {
+      addIgnoredElement(line, 'nonItem');
+      return true;
+    }
+    return false;
+  };
+  
+  // Second pass: Extract products and categorize ignored elements
   // Use for loop instead of forEach to allow look-ahead
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
+    
+    // First, check if line should be ignored
+    if (shouldIgnore(line)) {
+      continue;
+    }
     
     // Check for discount/markdown lines (e.g., "Markdown: $1.40")
     // Don't reset pendingProductNames for markdown - it's part of the product info
@@ -848,7 +953,7 @@ const parseReceiptText = (text) => {
       continue; // Continue to next line, keep pendingProductNames
     }
     
-    // Skip header/footer lines
+    // Skip header/footer lines (already checked in shouldIgnore, but double-check)
     if (skipPatterns.some(pattern => pattern.test(line))) {
       // Don't reset if it's just a skip pattern that might be between product name and price
       // Only reset if it's a major separator
@@ -984,14 +1089,32 @@ const parseReceiptText = (text) => {
           // Don't add to youSaveAmount - this is already applied to the product price
         }
         
+        // Extract weight/quantity info if present
+        let weightQuantity = null;
+        const weightMatch = line.match(/(\d+\.?\d*)\s*(?:lb|lbs|kg|g|oz)/i);
+        if (weightMatch) {
+          weightQuantity = weightMatch[0];
+        } else if (quantity > 1) {
+          weightQuantity = `${quantity} @ ${price.toFixed(2)}`;
+        }
+        
+        // Calculate total line price
+        const totalLinePrice = finalPrice * quantity;
+        
+        // SECTION A: Add grocery item (exactly as written, with final price after discounts)
         items.push({
-          name: name,
-          price: finalPrice,
-          quantity: quantity,
-          details: quantity > 1 ? `${quantity} each` : '1 Each',
+          name: name, // Item name (exactly as written, don't rewrite or guess)
+          price: finalPrice, // Final price per item after discounts
+          quantity: quantity, // Quantity/weight if shown
+          weightQuantity: weightQuantity, // Weight/quantity info if available
+          totalLinePrice: totalLinePrice, // Total price of the item line
         });
         
-        console.log(`  ✅ Parsed item: "${name}" - $${finalPrice.toFixed(2)} (qty: ${quantity})`);
+        console.log(`  ✅ Parsed item: "${name}" - $${finalPrice.toFixed(2)} per item (qty: ${quantity}, total: $${totalLinePrice.toFixed(2)})`);
+      } else if (hasPrice && !name) {
+        // Unclear line - has price but no clear product name
+        addIgnoredElement(line, 'unclear');
+        console.log(`  ⚠️ Unclear text - cannot extract: "${line}"`);
       }
     } 
     // Extract financial information (subtotal, tax, total sales, total due, total)
@@ -1111,6 +1234,7 @@ const parseReceiptText = (text) => {
   }
 
   console.log(`📦 Parsed ${items.length} items from receipt`);
+  console.log(`🚫 Ignored ${Object.values(ignoredElements).flat().length} elements`);
   
   // Combine all financial information into a single summary object
   const receiptSummary = {
@@ -1122,9 +1246,10 @@ const parseReceiptText = (text) => {
     youSave: youSaveAmount || null,
   };
   
-  // Return object with items and metadata
+  // Return object with items, ignored elements, and metadata
   const result = {
     items: items.length > 0 ? items : null,
+    ignoredElements: ignoredElements, // SECTION B: All ignored elements
     date: receiptDate,
     time: receiptTime,
     store: storeName,
