@@ -670,13 +670,82 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
       console.log('⚠️ No search query available, skipping Custom Search API');
     }
     
+    // Also try Aldi and Publix web scraping for product links
+    if (productName) {
+      // Try Aldi web scraping
+      let aldiPrice = null;
+      try {
+        console.log(`🛒 Trying Aldi web scraping for: ${productName}`);
+        aldiPrice = await aldiScraperService.getAldiPrice(productName);
+        if (aldiPrice && aldiPrice.price > 0) {
+          console.log(`✅ Found Aldi price: $${aldiPrice.price.toFixed(2)}`);
+          // Add Aldi to productLinks if not already present
+          if (!productLinks.exactMatches) {
+            productLinks.exactMatches = [];
+          }
+          // Check if Aldi already exists in exactMatches
+          const existingAldi = productLinks.exactMatches.find(link => 
+            link.source && link.source.toLowerCase() === 'aldi'
+          );
+          if (!existingAldi) {
+            productLinks.exactMatches.push({
+              source: 'Aldi',
+              price: aldiPrice.price,
+              link: aldiPrice.link,
+              title: aldiPrice.productName,
+              attributes: aldiPrice.attributes,
+            });
+          } else if (aldiPrice.price < existingAldi.price) {
+            // Update if scraped price is cheaper
+            existingAldi.price = aldiPrice.price;
+            existingAldi.link = aldiPrice.link;
+            existingAldi.attributes = aldiPrice.attributes;
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Aldi scraping failed for "${productName}":`, error.message);
+      }
+      
+      // Try Publix web scraping
+      let publixPrice = null;
+      try {
+        console.log(`🛒 Trying Publix web scraping for: ${productName}`);
+        publixPrice = await publixScraperService.getPublixPrice(productName);
+        if (publixPrice && publixPrice.price > 0) {
+          console.log(`✅ Found Publix price: $${publixPrice.price.toFixed(2)}`);
+          // Add Publix to productLinks if not already present
+          if (!productLinks.exactMatches) {
+            productLinks.exactMatches = [];
+          }
+          // Check if Publix already exists in exactMatches
+          const existingPublix = productLinks.exactMatches.find(link => 
+            link.source && link.source.toLowerCase() === 'publix'
+          );
+          if (!existingPublix) {
+            productLinks.exactMatches.push({
+              source: 'Publix',
+              price: publixPrice.price,
+              link: publixPrice.link,
+              title: publixPrice.productName,
+            });
+          } else if (publixPrice.price < existingPublix.price) {
+            // Update if scraped price is cheaper
+            existingPublix.price = publixPrice.price;
+            existingPublix.link = publixPrice.link;
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Publix scraping failed for "${productName}":`, error.message);
+      }
+    }
+    
     res.json({
       success: true,
       product: product,
       barcodeDetected: !!barcode,
       barcode: barcode || null,
       labelsDetected: labels ? labels.map(l => l.description) : null,
-      productLinks: productLinks, // Internet product links
+      productLinks: productLinks, // Internet product links (now includes Aldi and Publix)
     });
   } catch (error) {
     console.error('Error scanning product:', error);
