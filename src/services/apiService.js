@@ -24,21 +24,22 @@ const getApiBaseUrl = () => {
       }
     }
     
-    // Priority 3: Development mode - use local backend if available
-    if (typeof __DEV__ !== 'undefined' && __DEV__) {
-      // Check if running on web (browser)
-      if (typeof window !== 'undefined' && Platform.OS === 'web') {
-        // Web platform: try local backend first, fallback to Railway
-        console.log('🌐 Development mode (web), trying local backend first');
-        return 'http://localhost:3001/api';
-      }
-      
-      // Mobile platform (Expo Go): use local backend or Railway
-      console.log('🌐 Development mode (mobile), using local backend');
+    // Priority 3: Development mode - ALWAYS use local backend
+    // Check if we're in development (not production)
+    const isDevelopment = typeof __DEV__ !== 'undefined' && __DEV__;
+    const isLocalhost = typeof window !== 'undefined' && 
+                       (window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname === '');
+    
+    if (isDevelopment || isLocalhost) {
+      console.log('🌐 Development/Local detected, using local backend');
+      console.log('🌐 __DEV__:', typeof __DEV__ !== 'undefined' ? __DEV__ : 'undefined');
+      console.log('🌐 hostname:', typeof window !== 'undefined' ? window.location.hostname : 'undefined');
       return 'http://localhost:3001/api';
     }
     
-    // Fallback: Railway backend URL
+    // Fallback: Railway backend URL (production)
     console.log('🌐 Using fallback Railway backend URL');
     return 'https://scangoodapp-production.up.railway.app/api';
   } catch (error) {
