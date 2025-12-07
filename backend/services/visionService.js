@@ -1118,7 +1118,7 @@ const parseReceiptText = (text) => {
       }
     } 
     // Extract financial information (subtotal, tax, total sales, total due, total)
-    const priceMatch = line.match(pricePattern);
+    // priceMatch is already defined above, use it if available
     if (priceMatch) {
       const amount = parseFloat(priceMatch[1]);
       
