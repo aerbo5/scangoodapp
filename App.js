@@ -203,6 +203,7 @@ export default function App() {
         // Unified scan: Barcode + Product (backend automatically tries barcode first, then Vision API)
         // Call backend API for product scanning with productType
         result = await scanProduct(imageUri, productType);
+        console.log('📱 Frontend - Scan Product Response:', JSON.stringify(result, null, 2));
         if (result.success && result.product) {
           // Add type to product name if provided
           // e.g., "Drinking water" + "spring water" = "Spring water"
@@ -244,6 +245,18 @@ export default function App() {
             format: Array.isArray(result.productLinks) ? 'array' : 'object'
           });
           showScreen('productDetails');
+        } else {
+          // Product scan failed or no product found
+          console.error('❌ Product scan failed or no product found:', {
+            success: result.success,
+            hasProduct: !!result.product,
+            result: result
+          });
+          Alert.alert(
+            'Product Scan Failed',
+            result.error || 'Could not identify product. Please try scanning again with better lighting.',
+            [{ text: 'OK' }]
+          );
         }
       }
     } catch (error) {
