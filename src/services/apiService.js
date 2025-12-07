@@ -24,21 +24,18 @@ const getApiBaseUrl = () => {
       }
     }
     
-    // Priority 3: Check if running on web (browser)
-    if (typeof window !== 'undefined' && Platform.OS === 'web') {
-      // Web platform: always use Railway backend URL (production backend)
-      console.log('🌐 Web platform detected, using Railway backend URL');
-      return 'https://scangoodapp-production.up.railway.app/api';
-    }
-    
-    // Priority 4: Development mode (mobile only)
+    // Priority 3: Development mode - use local backend if available
     if (typeof __DEV__ !== 'undefined' && __DEV__) {
-      // Mobile platform (Expo Go): use ngrok (only if ngrok is running)
-      // For now, use Railway backend as fallback since ngrok is offline
-      console.log('🌐 Development mode (mobile), using Railway backend URL (ngrok offline)');
-      return 'https://scangoodapp-production.up.railway.app/api';
-      // Uncomment below when ngrok is running:
-      // return 'https://diagenetic-berry-pompously.ngrok-free.dev/api';
+      // Check if running on web (browser)
+      if (typeof window !== 'undefined' && Platform.OS === 'web') {
+        // Web platform: try local backend first, fallback to Railway
+        console.log('🌐 Development mode (web), trying local backend first');
+        return 'http://localhost:3001/api';
+      }
+      
+      // Mobile platform (Expo Go): use local backend or Railway
+      console.log('🌐 Development mode (mobile), using local backend');
+      return 'http://localhost:3001/api';
     }
     
     // Fallback: Railway backend URL
@@ -47,7 +44,7 @@ const getApiBaseUrl = () => {
   } catch (error) {
     console.error('❌ Error in getApiBaseUrl:', error);
     // Safe fallback
-    return 'https://scangoodapp-production.up.railway.app/api';
+    return 'http://localhost:3001/api';
   }
 };
 
