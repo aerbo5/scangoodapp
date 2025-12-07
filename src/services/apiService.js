@@ -136,11 +136,30 @@ export const scanReceipt = async (imageUri) => {
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : `image/jpeg`;
     
-    formData.append('image', {
-      uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
-      type: type,
-      name: filename || 'receipt.jpg',
-    });
+    // Handle web platform differently - need to convert URI to Blob
+    if (Platform.OS === 'web') {
+      try {
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        formData.append('image', blob, filename || 'receipt.jpg');
+      } catch (fetchError) {
+        console.error('Error fetching image for web:', fetchError);
+        if (imageUri.startsWith('data:')) {
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+          formData.append('image', blob, filename || 'receipt.jpg');
+        } else {
+          throw new Error('Could not convert image to blob for web platform');
+        }
+      }
+    } else {
+      // Mobile platform - use URI
+      formData.append('image', {
+        uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
+        type: type,
+        name: filename || 'receipt.jpg',
+      });
+    }
 
     const response = await api.post('/scan/receipt', formData, {
       headers: {
@@ -170,11 +189,30 @@ export const scanBarcode = async (imageUri) => {
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : `image/jpeg`;
     
-    formData.append('image', {
-      uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
-      type: type,
-      name: filename || 'barcode.jpg',
-    });
+    // Handle web platform differently - need to convert URI to Blob
+    if (Platform.OS === 'web') {
+      try {
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        formData.append('image', blob, filename || 'barcode.jpg');
+      } catch (fetchError) {
+        console.error('Error fetching image for web:', fetchError);
+        if (imageUri.startsWith('data:')) {
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+          formData.append('image', blob, filename || 'barcode.jpg');
+        } else {
+          throw new Error('Could not convert image to blob for web platform');
+        }
+      }
+    } else {
+      // Mobile platform - use URI
+      formData.append('image', {
+        uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
+        type: type,
+        name: filename || 'barcode.jpg',
+      });
+    }
 
     const response = await api.post('/scan/barcode', formData, {
       headers: {
@@ -197,11 +235,34 @@ export const scanProduct = async (imageUri, productType = '') => {
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : `image/jpeg`;
     
-    formData.append('image', {
-      uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
-      type: type,
-      name: filename || 'product.jpg',
-    });
+    // Handle web platform differently - need to convert URI to Blob
+    if (Platform.OS === 'web') {
+      // For web, fetch the image and convert to blob
+      try {
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        formData.append('image', blob, filename || 'product.jpg');
+      } catch (fetchError) {
+        console.error('Error fetching image for web:', fetchError);
+        // Fallback: try to use imageUri directly as File
+        // If imageUri is a data URL, convert it
+        if (imageUri.startsWith('data:')) {
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+          formData.append('image', blob, filename || 'product.jpg');
+        } else {
+          // Try to create a File object from the URI
+          throw new Error('Could not convert image to blob for web platform');
+        }
+      }
+    } else {
+      // Mobile platform - use URI
+      formData.append('image', {
+        uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
+        type: type,
+        name: filename || 'product.jpg',
+      });
+    }
 
     // Add product type if provided (e.g., "spring water", "organic")
     if (productType) {
