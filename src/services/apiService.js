@@ -80,6 +80,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     console.log('✅ API Response:', response.status, response.config.url);
+    // Check if response is HTML (error case)
+    if (typeof response.data === 'string' && response.data.trim().startsWith('<!DOCTYPE')) {
+      console.error('❌ Backend returned HTML instead of JSON!');
+      console.error('❌ Response data (first 500 chars):', response.data.substring(0, 500));
+      console.error('❌ This usually means backend is not running or wrong URL');
+      // Return error instead of HTML
+      return Promise.reject(new Error('Backend returned HTML instead of JSON. Check if backend is running.'));
+    }
     return response;
   },
   (error) => {
@@ -207,6 +215,22 @@ export const scanProduct = async (imageUri, productType = '') => {
         'Content-Type': 'multipart/form-data',
       },
     });
+    
+    // Check if response is valid JSON (not HTML)
+    if (typeof response.data === 'string' && response.data.trim().startsWith('<!DOCTYPE')) {
+      console.error('❌ Backend returned HTML instead of JSON!');
+      console.error('❌ Response URL:', response.config?.baseURL + response.config?.url);
+      console.error('❌ This usually means backend is not running or wrong URL');
+      throw new Error('Backend returned HTML instead of JSON. Check if backend is running at: ' + (response.config?.baseURL || API_BASE_URL));
+    }
+    
+    console.log('📦 Scan Product Response Data:', {
+      success: response.data?.success,
+      hasProduct: !!response.data?.product,
+      hasProductLinks: !!response.data?.productLinks,
+      dataKeys: Object.keys(response.data || {}),
+    });
+    
     return response.data;
   } catch (error) {
     console.error('Error scanning product:', error);
