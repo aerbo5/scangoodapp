@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "build:web": "expo export --platform web --output-dir web-build",
     "build": "expo export --platform web --output-dir web-build",
-    "vercel-build": "npm ci && npx expo export --platform web --output-dir web-build"
+    "vercel-build": "npx expo export --platform web --output-dir web-build"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
