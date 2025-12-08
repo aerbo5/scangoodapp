@@ -13,9 +13,15 @@ const getApiBaseUrl = () => {
       return process.env.REACT_APP_API_URL;
     }
     
-    // Priority 2: Check if we're on Netlify (production)
+    // Priority 2: Check if we're on Vercel or Netlify (production)
     if (typeof window !== 'undefined' && window.location && window.location.hostname) {
       const hostname = window.location.hostname;
+      
+      // If on Vercel, use Railway backend directly
+      if (hostname.includes('vercel.app')) {
+        console.log('🌐 Detected Vercel, using Railway backend URL');
+        return 'https://scangoodapp-production.up.railway.app/api';
+      }
       
       // If on Netlify, use Railway backend directly (not Functions proxy)
       if (hostname.includes('netlify.app')) {
