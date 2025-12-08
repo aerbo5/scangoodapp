@@ -263,8 +263,13 @@ export default function App() {
       console.error('Error processing image:', error);
       
       // Extract error message from response
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to process image. Please try again.';
+      let errorMessage = error.response?.data?.error || error.message || 'Failed to process image. Please try again.';
       const errorStatus = error.response?.status;
+      
+      // Handle network errors specifically
+      if (error.message === 'Network Error' || error.code === 'ERR_NETWORK' || error.code === 'NETWORK_ERROR') {
+        errorMessage = error.userMessage || 'Network error: Cannot connect to backend. Please check your internet connection and try again.';
+      }
       
       // Show user-friendly error message
       Alert.alert(

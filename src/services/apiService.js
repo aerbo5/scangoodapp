@@ -106,13 +106,23 @@ api.interceptors.response.use(
     });
     
     // More detailed error for connection issues
-    if (error.message === 'Network Error' || error.code === 'NETWORK_ERROR') {
+    if (error.message === 'Network Error' || error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK') {
       console.error('🔴 Network Error Detected!');
+      console.error('🔴 Current API Base URL:', API_BASE_URL);
       console.error('🔴 Check if:');
-      console.error('   1. Backend is running on http://localhost:3001');
-      console.error('   2. Ngrok is running and URL is correct');
-      console.error('   3. apiService.js has correct ngrok URL');
-      console.error('   4. URL format: https://xxxxx.ngrok-free.app/api');
+      console.error('   1. Backend is running on Railway: https://scangoodapp-production.up.railway.app');
+      console.error('   2. CORS is properly configured on backend');
+      console.error('   3. Backend service is not sleeping (Railway free tier)');
+      console.error('   4. Network connection is stable');
+      
+      // Provide user-friendly error message
+      if (error.config?.baseURL?.includes('railway.app')) {
+        error.userMessage = 'Backend service may be sleeping. Please wait a moment and try again, or check Railway dashboard.';
+      } else if (error.config?.baseURL?.includes('localhost')) {
+        error.userMessage = 'Local backend is not running. Please start the backend server.';
+      } else {
+        error.userMessage = 'Cannot connect to backend. Please check your internet connection.';
+      }
     }
     
     return Promise.reject(error);
