@@ -20,13 +20,13 @@ const getApiBaseUrl = () => {
       // If on Vercel, use Railway backend directly
       if (hostname.includes('vercel.app')) {
         console.log('🌐 Detected Vercel, using Railway backend URL');
-        return 'https://scangoodapp-production.up.railway.app/api';
+        return 'https://scangoodapp.up.railway.app/api';
       }
       
       // If on Netlify, use Railway backend directly (not Functions proxy)
       if (hostname.includes('netlify.app')) {
         console.log('🌐 Detected Netlify, using Railway backend URL');
-        return 'https://scangoodapp-production.up.railway.app/api';
+        return 'https://scangoodapp.up.railway.app/api';
       }
     }
     
@@ -47,7 +47,7 @@ const getApiBaseUrl = () => {
     
     // Fallback: Railway backend URL (production)
     console.log('🌐 Using fallback Railway backend URL');
-    return 'https://scangoodapp-production.up.railway.app/api';
+    return 'https://scangoodapp.up.railway.app/api';
   } catch (error) {
     console.error('❌ Error in getApiBaseUrl:', error);
     // Safe fallback
@@ -110,7 +110,7 @@ api.interceptors.response.use(
       console.error('🔴 Network Error Detected!');
       console.error('🔴 Current API Base URL:', API_BASE_URL);
       console.error('🔴 Check if:');
-      console.error('   1. Backend is running on Railway: https://scangoodapp-production.up.railway.app');
+      console.error('   1. Backend is running on Railway: https://scangoodapp.up.railway.app');
       console.error('   2. CORS is properly configured on backend');
       console.error('   3. Backend service is not sleeping (Railway free tier)');
       console.error('   4. Network connection is stable');
