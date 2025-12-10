@@ -1263,8 +1263,11 @@ app.post('/api/test/vision', upload.single('image'), async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Scan Good Backend API running on http://localhost:${PORT}`);
-  console.log(`📡 Health check: http://localhost:${PORT}/api/health`);
+// Railway requires binding to 0.0.0.0 (all network interfaces)
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Scan Good Backend API running on http://${HOST}:${PORT}`);
+  console.log(`📡 Health check: http://${HOST}:${PORT}/api/health`);
+  console.log(`🌐 Railway will route traffic to this port: ${PORT}`);
 });
 
