@@ -749,8 +749,21 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
       productLinks: productLinks, // Internet product links (now includes Aldi and Publix)
     });
   } catch (error) {
-    console.error('Error scanning product:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('❌ Error scanning product:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+    });
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error while scanning product',
+      debug: process.env.NODE_ENV === 'development' ? {
+        stack: error.stack,
+        name: error.name,
+      } : undefined,
+    });
   }
 });
 
