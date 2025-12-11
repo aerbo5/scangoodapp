@@ -429,101 +429,146 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
           }
           let ocrText = await visionService.extractTextFromImage(req.file.buffer);
         
-        // Extract product name from OCR text (look for brand names, product names)
+        // Extract product name, brand, and size from OCR text
         if (ocrText) {
-          console.log('📝 OCR Text extracted:', ocrText.substring(0, 300)); // First 300 chars
+          console.log('📝 OCR Text extracted:', ocrText.substring(0, 500)); // First 500 chars
           
-          // Extract potential product/brand names from OCR text
-          // Look for capitalized words, brand names, etc.
           const textLines = ocrText.split('\n').filter(line => line.trim().length > 0);
-          const potentialNames = [];
+          let extractedBrand = null;
+          let extractedProduct = null;
+          let extractedSize = null;
           
           // Generic terms to filter out
           const genericTerms = [
             'Solution', 'Cylinder', 'Plastic', 'Bottle', 'Liquid', 'Water', 'Product',
             'Created', 'Created By', 'By', 'France', 'FRANCE', 'Ultimate', 'Unflavored',
             'Sparkling', 'SPARKLING', 'WATER', 'Label', 'Ingredients', 'Nutrition',
-            'Serving', 'Size', 'Fl Oz', 'ML', 'L', 'Oz', 'Net', 'Weight', 'Volume'
+            'Serving', 'Size', 'Fl Oz', 'ML', 'L', 'Oz', 'Net', 'Weight', 'Volume',
+            'KEEP FROZEN', 'READY TO COOK', 'PER 1 PATTY', 'CALORIES', 'SAT FAT', 'SODIUM', 'TOTAL SUGARS'
           ];
           
+          // Look for brand name (usually at top, all caps or title case, 1-3 words)
           for (const line of textLines) {
-            const trimmedLine = line.trim();
-            const words = trimmedLine.split(/\s+/).filter(w => w.length > 0);
+            const trimmed = line.trim();
+            const words = trimmed.split(/\s+/).filter(w => w.length > 0);
             
-            // Skip very short lines (1-2 words) unless they look like brand names
-            if (words.length === 1 && words[0].length < 4) continue;
-            
-            // Look for lines with capitalized words (likely brand/product names)
-            if (words.length >= 1 && words.length <= 6) {
-              // Check if most words start with capital letter (brand/product name pattern)
-              const capitalizedCount = words.filter(w => /^[A-Z]/.test(w)).length;
-              const allCapsCount = words.filter(w => /^[A-Z]+$/.test(w) && w.length > 2).length;
+            // Brand pattern: 1-3 words, mostly capitalized, not generic
+            if (words.length >= 1 && words.length <= 3) {
+              const allCaps = words.every(w => /^[A-Z]+$/.test(w));
+              const titleCase = words.every(w => /^[A-Z][a-z]*$/.test(w));
+              const nameLower = trimmed.toLowerCase();
+              const isGeneric = genericTerms.some(term => nameLower.includes(term.toLowerCase()));
               
-              // Prefer lines with mostly capitalized words (but not all caps unless it's a short brand name)
-              if (capitalizedCount >= words.length * 0.6 || (words.length <= 3 && allCapsCount === words.length)) {
-                const name = words.join(' ').trim();
-                
-                // Filter out generic terms (case-insensitive)
-                const nameLower = name.toLowerCase();
-                const isGeneric = genericTerms.some(term => 
-                  nameLower === term.toLowerCase() || 
-                  nameLower.includes(term.toLowerCase()) ||
-                  name.startsWith(term + ' ') ||
-                  name.endsWith(' ' + term)
-                );
-                
-                if (!isGeneric && name.length >= 3) {
-                  potentialNames.push({
-                    name: name,
-                    length: name.length,
-                    wordCount: words.length,
-                    isAllCaps: allCapsCount === words.length && words.length <= 3,
-                  });
+              if ((allCaps || titleCase) && !isGeneric && trimmed.length >= 3 && trimmed.length <= 40) {
+                // Check if it looks like a brand (common brand patterns)
+                if (trimmed.includes("'S") || trimmed.includes("'S RANCH") || 
+                    trimmed.includes("RANCH") || trimmed.includes("BRAND") ||
+                    /^[A-Z][A-Z\s&']+$/.test(trimmed) || /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*$/.test(trimmed)) {
+                  extractedBrand = trimmed;
+                  console.log('🏷️  Brand extracted from OCR:', extractedBrand);
+                  break;
                 }
               }
             }
           }
           
-          // Sort potential names by priority:
-          // 1. Longer names (more likely to be full brand names)
-          // 2. Names with 2-4 words (typical brand name length)
-          // 3. Not all caps (unless very short)
-          potentialNames.sort((a, b) => {
-            // Prefer longer names
-            if (Math.abs(a.length - b.length) > 5) {
-              return b.length - a.length;
-            }
-            // Prefer 2-4 word names (typical brand names)
-            if (a.wordCount >= 2 && a.wordCount <= 4 && (b.wordCount < 2 || b.wordCount > 4)) return -1;
-            if (b.wordCount >= 2 && b.wordCount <= 4 && (a.wordCount < 2 || a.wordCount > 4)) return 1;
-            // Prefer non-all-caps (unless very short)
-            if (!a.isAllCaps && b.isAllCaps && b.length > 5) return -1;
-            if (a.isAllCaps && !b.isAllCaps && a.length > 5) return 1;
-            return b.length - a.length;
-          });
+          // Look for product name (longer text, includes product type)
+          const productKeywords = ['burger', 'patties', 'beef', 'chicken', 'pork', 'fish', 'cheese', 
+                                   'milk', 'bread', 'pasta', 'rice', 'soup', 'cereal', 'yogurt', 
+                                   'juice', 'water', 'coffee', 'tea', 'soda', 'snack', 'cookie', 
+                                   'cracker', 'chip', 'frozen', 'fresh', 'black', 'angus', 'bacon', 
+                                   'cheddar', 'ranch'];
           
-          if (potentialNames.length > 0) {
-            // Use best potential name as product name
-            productName = potentialNames[0].name;
-            console.log('✅ Product name extracted from OCR:', productName);
-            console.log('📋 All potential names:', potentialNames.map(p => p.name).join(', '));
+          for (const line of textLines) {
+            const trimmed = line.trim();
+            const nameLower = trimmed.toLowerCase();
+            const isGeneric = genericTerms.some(term => nameLower.includes(term.toLowerCase()));
             
-            // If we don't have a product yet, create one from OCR-extracted name
+            // Product pattern: 3+ words, contains product keywords, not generic
+            if (trimmed.length >= 10 && trimmed.length <= 80 && !isGeneric) {
+              const hasProductKeyword = productKeywords.some(keyword => nameLower.includes(keyword));
+              const wordCount = trimmed.split(/\s+/).length;
+              
+              if (hasProductKeyword && wordCount >= 3) {
+                // Check if it's a product description (not just a single word)
+                if (!extractedProduct || trimmed.length > extractedProduct.length) {
+                  extractedProduct = trimmed;
+                  console.log('📦 Product extracted from OCR:', extractedProduct);
+                }
+              }
+            }
+          }
+          
+          // Look for size/weight (patterns like "2 lb", "32 OZ", "6 count", "6 - 1/3 POUND")
+          const sizePatterns = [
+            /\b(\d+\s*-\s*\d+\/\d+\s*POUND?\s*PATTIES?)\b/i,
+            /\b(\d+\s*PATTIES?)\b/i,
+            /\b(\d+\s*(?:lb|lbs|oz|fl\s*oz|ml|g|kg|count))\b/i,
+            /\b(NET\s*WT\s*\d+\s*OZ\s*\([^)]+\))\b/i,
+          ];
+          
+          for (const line of textLines) {
+            for (const pattern of sizePatterns) {
+              const match = line.match(pattern);
+              if (match) {
+                extractedSize = match[1];
+                console.log('⚖️  Size extracted from OCR:', extractedSize);
+                break;
+              }
+            }
+            if (extractedSize) break;
+          }
+          
+          // Combine brand and product if found
+          if (extractedBrand || extractedProduct) {
+            if (extractedBrand && extractedProduct) {
+              productName = `${extractedBrand} ${extractedProduct}`;
+            } else if (extractedProduct) {
+              productName = extractedProduct;
+            } else if (extractedBrand) {
+              productName = extractedBrand;
+            }
+            
+            console.log('✅ Product name from OCR:', productName);
+            
+            // Create or update product object
             if (!product) {
-              console.log('💡 Creating product from OCR-extracted name');
+              console.log('💡 Creating product from OCR-extracted information');
               product = {
-                brand: null,
-                name: productName,
-                size: '1 Each',
-                weight: '1 Each',
+                brand: extractedBrand,
+                name: extractedProduct || productName,
+                size: extractedSize || '1 Each',
+                weight: extractedSize || '1 Each',
                 category: 'General',
                 labels: [],
                 stores: null,
                 price: null,
               };
+            } else {
+              // Update existing product with OCR data
+              if (extractedBrand && !product.brand) {
+                product.brand = extractedBrand;
+              }
+              if (extractedProduct && (!product.name || product.name.length < extractedProduct.length)) {
+                product.name = extractedProduct;
+              }
+              if (extractedSize && product.size === '1 Each') {
+                product.size = extractedSize;
+                product.weight = extractedSize;
+              }
+            }
+            
+            // Store for scraper
+            if (extractedBrand || extractedProduct) {
+              aiProductInfoForScraper = {
+                brand: extractedBrand || 'Unknown',
+                product: extractedProduct || productName,
+                fullName: productName,
+                size: extractedSize || 'Unknown',
+              };
             }
           } else {
-            console.log('⚠️ No valid product name found in OCR text');
+            console.log('⚠️ No valid product information found in OCR text');
           }
             }
           }
