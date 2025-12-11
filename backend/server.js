@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3001;
 visionService.initializeVision();
 
 // Middleware
-// CORS configuration - Allow Netlify, Vercel, local development, and ngrok
+// CORS configuration - Allow Netlify, Vercel, local development, Render, and ngrok
 app.use(cors({
   origin: [
     'http://localhost:8081',
@@ -27,7 +27,6 @@ app.use(cors({
     'http://localhost:3000',
     /\.netlify\.app$/,  // Allow all Netlify subdomains
     /\.vercel\.app$/,   // Allow all Vercel subdomains
-    /\.railway\.app$/,  // Allow Railway deployments
     /\.render\.com$/,   // Allow Render deployments
     /\.ngrok-free\.app$/,  // Allow ngrok free URLs
     /\.ngrok\.io$/,        // Allow ngrok.io URLs
@@ -41,10 +40,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // File upload configuration
+// Increased limit for long receipts (up to 20MB)
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit (for long receipts)
 });
 
 // Routes
@@ -1276,11 +1276,12 @@ app.post('/api/test/vision', upload.single('image'), async (req, res) => {
 });
 
 // Start server
-// Railway requires binding to 0.0.0.0 (all network interfaces)
+// Render.com requires binding to 0.0.0.0 (all network interfaces)
+// Render.com automatically sets PORT environment variable
 const HOST = process.env.HOST || '0.0.0.0';
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Scan Good Backend API running on http://${HOST}:${PORT}`);
   console.log(`📡 Health check: http://${HOST}:${PORT}/api/health`);
-  console.log(`🌐 Railway will route traffic to this port: ${PORT}`);
+  console.log(`🌐 Render.com will route traffic to this port: ${PORT}`);
 });
 

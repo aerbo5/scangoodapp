@@ -17,16 +17,16 @@ const getApiBaseUrl = () => {
     if (typeof window !== 'undefined' && window.location && window.location.hostname) {
       const hostname = window.location.hostname;
       
-      // If on Vercel, use Railway backend directly
+      // If on Vercel, use Render backend
       if (hostname.includes('vercel.app')) {
-        console.log('🌐 Detected Vercel, using Railway backend URL');
-        return 'https://scangoodapp.up.railway.app/api';
+        console.log('🌐 Detected Vercel, using Render backend URL');
+        return 'https://scangood-backend.onrender.com/api';
       }
       
-      // If on Netlify, use Railway backend directly (not Functions proxy)
+      // If on Netlify, use Render backend
       if (hostname.includes('netlify.app')) {
-        console.log('🌐 Detected Netlify, using Railway backend URL');
-        return 'https://scangoodapp.up.railway.app/api';
+        console.log('🌐 Detected Netlify, using Render backend URL');
+        return 'https://scangood-backend.onrender.com/api';
       }
     }
     
@@ -45,9 +45,9 @@ const getApiBaseUrl = () => {
       return 'http://localhost:3001/api';
     }
     
-    // Fallback: Railway backend URL (production)
-    console.log('🌐 Using fallback Railway backend URL');
-    return 'https://scangoodapp.up.railway.app/api';
+    // Fallback: Render backend URL (production)
+    console.log('🌐 Using fallback Render backend URL');
+    return 'https://scangood-backend.onrender.com/api';
   } catch (error) {
     console.error('❌ Error in getApiBaseUrl:', error);
     // Safe fallback
@@ -60,7 +60,7 @@ console.log('🌐 API Base URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 120000, // 120 seconds (2 minutes) - increased for long receipts
   headers: {
     'Content-Type': 'application/json',
   },
@@ -110,14 +110,14 @@ api.interceptors.response.use(
       console.error('🔴 Network Error Detected!');
       console.error('🔴 Current API Base URL:', API_BASE_URL);
       console.error('🔴 Check if:');
-      console.error('   1. Backend is running on Railway: https://scangoodapp.up.railway.app');
+      console.error('   1. Backend is running on Render: https://scangood-backend.onrender.com');
       console.error('   2. CORS is properly configured on backend');
-      console.error('   3. Backend service is not sleeping (Railway free tier)');
+      console.error('   3. Backend service is not sleeping (Render free tier)');
       console.error('   4. Network connection is stable');
       
       // Provide user-friendly error message
-      if (error.config?.baseURL?.includes('railway.app')) {
-        error.userMessage = 'Backend service may be sleeping. Please wait a moment and try again, or check Railway dashboard.';
+      if (error.config?.baseURL?.includes('onrender.com')) {
+        error.userMessage = 'Backend service may be sleeping. Please wait a moment and try again, or check Render dashboard.';
       } else if (error.config?.baseURL?.includes('localhost')) {
         error.userMessage = 'Local backend is not running. Please start the backend server.';
       } else {
