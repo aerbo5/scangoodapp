@@ -151,19 +151,7 @@ const CameraScreen = ({
         <View style={styles.previewContainer}>
           <Image 
             source={{ uri: capturedImage }} 
-            style={[
-              styles.previewImage,
-              imageDimensions.width > 0 && imageDimensions.height > 0 && {
-                aspectRatio: imageDimensions.width / imageDimensions.height,
-              }
-            ]}
-            onLoad={(e) => {
-              // Resim yüklendiğinde gerçek boyutları al
-              const { width: imgWidth, height: imgHeight } = e.nativeEvent.source;
-              if (imgWidth && imgHeight && (imageDimensions.width === 0 || imageDimensions.height === 0)) {
-                setImageDimensions({ width: imgWidth, height: imgHeight });
-              }
-            }}
+            style={styles.previewImage}
           />
           <View style={styles.previewOverlay}>
             <Text style={styles.previewText}>{t('camera.imageCaptured') || 'Image Captured'}</Text>
@@ -475,9 +463,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
   },
   previewImage: {
-    width: width * 0.6,
-    maxWidth: width * 0.6,
-    maxHeight: height * 0.4,
+    width: width * 0.5,
+    maxWidth: width * 0.5,
+    maxHeight: height * 0.35,
     resizeMode: 'contain',
   },
   previewOverlay: {
