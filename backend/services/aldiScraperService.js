@@ -21,41 +21,123 @@ const searchProductOnAldi = async (productName) => {
 
     console.log(`🔍 Searching Aldi for: ${productName}`);
 
-    // Clean product name for search
-    const cleanProductName = productName
+    // Clean product name for search - more aggressive cleaning
+    let cleanProductName = productName
       .replace(/&/g, 'and')
       .replace(/'/g, '')
+      .replace(/[^\w\s-]/g, ' ') // Remove special chars except spaces and hyphens
+      .replace(/\s+/g, ' ') // Multiple spaces to single space
       .trim();
+    
+    // Extract key words from product name (remove common words, keep important ones)
+    const words = cleanProductName.toLowerCase().split(/\s+/);
+    const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'from', 'by', 'lb', 'oz', 'count', 'pack'];
+    const keyWords = words.filter(word => word.length > 2 && !stopWords.includes(word));
+    
+    // Use key words if product name is too long (>50 chars) or has many words (>6)
+    if (cleanProductName.length > 50 || words.length > 6) {
+      cleanProductName = keyWords.slice(0, 5).join(' '); // Use first 5 key words
+      console.log(`🔑 Using key words for search: ${cleanProductName}`);
+    }
+    
+    // Also try brand name + main product name if available
+    // Example: "Cattlemen's Ranch Black Angus Bacon Cheddar Beef Burger Patties"
+    // -> Try: "Cattlemen Ranch Burger Patties" or "Black Angus Burger"
+    const brandMatch = cleanProductName.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+    const mainProductMatch = cleanProductName.match(/(burger|patties|beef|chicken|pork|fish|cheese|milk|bread|pasta|rice|soup|cereal|yogurt|juice|water|coffee|tea|soda|snack|cookie|cracker|chip|frozen|fresh)/i);
+    
+    let alternativeSearch = null;
+    if (brandMatch && mainProductMatch) {
+      alternativeSearch = `${brandMatch[1]} ${mainProductMatch[1]}`;
+      console.log(`🔑 Alternative search query: ${alternativeSearch}`);
+    }
 
-    // Aldi search URL
-    // Aldi uses different URL patterns - trying multiple approaches
-    const searchUrl = `https://www.aldi.us/en/search.html?q=${encodeURIComponent(cleanProductName)}`;
+    // Aldi search URL - trying multiple URL patterns
+    // Aldi may use different search endpoints
+    const searchUrls = [
+      `https://www.aldi.us/en/search.html?q=${encodeURIComponent(cleanProductName)}`,
+      `https://www.aldi.us/en/search?q=${encodeURIComponent(cleanProductName)}`,
+      `https://www.aldi.us/search?q=${encodeURIComponent(cleanProductName)}`,
+    ];
 
-    // Make request with proper headers to avoid blocking
-    const response = await axios.get(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0',
-        'Referer': 'https://www.aldi.us/',
-      },
-      timeout: 15000,
-    });
+    let response = null;
+    let lastError = null;
+
+    // Try each URL pattern
+    for (const searchUrl of searchUrls) {
+      try {
+        console.log(`🔗 Trying Aldi URL: ${searchUrl}`);
+        
+        // Make request with proper headers to avoid blocking
+        response = await axios.get(searchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0',
+            'Referer': 'https://www.aldi.us/',
+          },
+          timeout: 15000,
+          validateStatus: function (status) {
+            return status >= 200 && status < 400; // Accept 2xx and 3xx
+          },
+        });
+        
+        // If we got a response, break the loop
+        if (response && response.data) {
+          console.log(`✅ Successfully fetched from: ${searchUrl}`);
+          break;
+        }
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch from ${searchUrl}:`, error.message);
+        lastError = error;
+        continue; // Try next URL
+      }
+    }
+
+    // If all URLs failed, throw error
+    if (!response || !response.data) {
+      throw new Error(`Failed to fetch from all Aldi URLs. Last error: ${lastError?.message || 'Unknown error'}`);
+    }
 
     // Parse HTML with Cheerio
     const $ = cheerio.load(response.data);
     const products = [];
 
+    // Debug: Log page structure
+    console.log(`📄 Page title: ${$('title').text()}`);
+    console.log(`📄 Page has ${$('body').length} body elements`);
+    
     // Try to find product listings - Aldi uses various selectors
     // Common patterns: .product-item, .product-card, .product-tile, .search-result-item
-    $('.product-item, .product-card, .product-tile, [data-product-id], .search-result-item, .product, .product-box').each((index, element) => {
+    // Also try: [class*="product"], [class*="item"], [data-product]
+    const productSelectors = [
+      '.product-item',
+      '.product-card', 
+      '.product-tile',
+      '[data-product-id]',
+      '.search-result-item',
+      '.product',
+      '.product-box',
+      '[class*="product"]',
+      '[class*="item"]',
+      '[data-product]',
+      '.grid-item',
+      '.listing-item',
+      '.result-item',
+    ].join(', ');
+    
+    console.log(`🔍 Searching for products with selectors: ${productSelectors}`);
+    const productElements = $(productSelectors);
+    console.log(`📦 Found ${productElements.length} potential product elements`);
+    
+    productElements.each((index, element) => {
       try {
         const $el = $(element);
         
@@ -193,10 +275,26 @@ const searchProductOnAldi = async (productName) => {
     }
 
     console.log(`✅ Found ${products.length} products on Aldi for: ${productName}`);
+    
+    // If no products found, log HTML structure for debugging
+    if (products.length === 0) {
+      console.warn(`⚠️ No products found. Page structure:`);
+      console.warn(`   - Body HTML length: ${$('body').html()?.length || 0} chars`);
+      console.warn(`   - Has main content: ${$('main, .main, .content, #main, #content').length > 0}`);
+      console.warn(`   - Has search results: ${$('[class*="search"], [class*="result"], [id*="search"], [id*="result"]').length > 0}`);
+      
+      // Try to find any price-like text on the page
+      const priceLikeText = $('body').text().match(/\$[\d,]+\.?\d*/g);
+      if (priceLikeText && priceLikeText.length > 0) {
+        console.warn(`   - Found ${priceLikeText.length} price-like strings: ${priceLikeText.slice(0, 5).join(', ')}`);
+      }
+    }
+    
     return products;
 
   } catch (error) {
     console.error(`❌ Error scraping Aldi for "${productName}":`, error.message);
+    console.error(`❌ Error stack:`, error.stack);
     
     // Return empty array on error (don't break the app)
     return [];
@@ -223,8 +321,113 @@ const parsePrice = (priceText) => {
 };
 
 // Get product price from Aldi (main function)
-const getAldiPrice = async (productName) => {
+// options: { brand, productDetails } - optional brand and product details for better search
+const getAldiPrice = async (productName, options = {}) => {
   try {
+    const { brand, productDetails } = options;
+    
+    // If we have brand and product details, prioritize brand + product search
+    if (brand && productDetails) {
+      console.log(`🎯 Using brand + product details for optimized search`);
+      console.log(`   Brand: "${brand}"`);
+      console.log(`   Product: "${productDetails}"`);
+      
+      // Try brand + product details first (most specific)
+      const brandProductQuery = `${brand} ${productDetails}`;
+      console.log(`🔍 Primary search: "${brandProductQuery}"`);
+      const brandProductResults = await searchProductOnAldi(brandProductQuery);
+      
+      if (brandProductResults.length > 0) {
+        console.log(`✅ Found ${brandProductResults.length} products with brand+product search`);
+        return {
+          store: 'Aldi',
+          price: brandProductResults[0].price,
+          priceText: brandProductResults[0].priceText,
+          link: brandProductResults[0].link,
+          productName: brandProductResults[0].name,
+          attributes: brandProductResults[0].attributes,
+          allPrices: brandProductResults,
+        };
+      }
+      
+      // If brand+product didn't work, try just brand + key words from product details
+      const productWords = productDetails.toLowerCase().split(/\s+/);
+      const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'from', 'by'];
+      const keyWords = productWords.filter(word => word.length > 3 && !stopWords.includes(word)).slice(0, 3);
+      if (keyWords.length > 0) {
+        const brandKeyWordsQuery = `${brand} ${keyWords.join(' ')}`;
+        console.log(`🔍 Secondary search: "${brandKeyWordsQuery}"`);
+        const brandKeyWordsResults = await searchProductOnAldi(brandKeyWordsQuery);
+        
+        if (brandKeyWordsResults.length > 0) {
+          console.log(`✅ Found ${brandKeyWordsResults.length} products with brand+keywords search`);
+          return {
+            store: 'Aldi',
+            price: brandKeyWordsResults[0].price,
+            priceText: brandKeyWordsResults[0].priceText,
+            link: brandKeyWordsResults[0].link,
+            productName: brandKeyWordsResults[0].name,
+            attributes: brandKeyWordsResults[0].attributes,
+            allPrices: brandKeyWordsResults,
+          };
+        }
+      }
+    }
+    
+    // If product name is too generic (1-2 words), try to expand it
+    const words = productName.trim().split(/\s+/);
+    if (words.length <= 2 && productName.length < 20) {
+      console.log(`⚠️ Product name is too generic: "${productName}"`);
+      console.log(`💡 Trying alternative search strategies...`);
+      
+      // Try common product variations
+      const variations = [];
+      
+      // If it's "BACON & CHEESE" or similar, try burger-related searches
+      if (productName.toLowerCase().includes('bacon') && productName.toLowerCase().includes('cheese')) {
+        variations.push('burger patties bacon cheese');
+        variations.push('beef burger bacon cheddar');
+        variations.push('black angus burger bacon');
+        // If we have brand, add brand to variations
+        if (brand) {
+          variations.push(`${brand} burger patties bacon`);
+          variations.push(`${brand} beef burger bacon`);
+        }
+      }
+      
+      // If it's just "BURGER" or "PATTIES", try common burger searches
+      if (productName.toLowerCase().includes('burger') || productName.toLowerCase().includes('patties')) {
+        variations.push('beef burger patties');
+        variations.push('black angus burger');
+        variations.push('cheddar burger patties');
+        // If we have brand, add brand to variations
+        if (brand) {
+          variations.push(`${brand} burger patties`);
+          variations.push(`${brand} beef burger`);
+        }
+      }
+      
+      // Try all variations
+      for (const variation of variations) {
+        console.log(`🔄 Trying variation: "${variation}"`);
+        const variationProducts = await searchProductOnAldi(variation);
+        if (variationProducts.length > 0) {
+          console.log(`✅ Found ${variationProducts.length} products with variation: "${variation}"`);
+          // Return the cheapest product
+          return {
+            store: 'Aldi',
+            price: variationProducts[0].price,
+            priceText: variationProducts[0].priceText,
+            link: variationProducts[0].link,
+            productName: variationProducts[0].name,
+            attributes: variationProducts[0].attributes,
+            allPrices: variationProducts,
+          };
+        }
+      }
+    }
+    
+    // Try original product name search
     const products = await searchProductOnAldi(productName);
     
     if (products.length === 0) {

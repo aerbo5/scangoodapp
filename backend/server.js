@@ -331,6 +331,7 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
     let product = null;
     let productName = null;
     let barcode = null;
+    let aiProductInfoForScraper = null; // Store AI product info for Aldi scraper
     const productType = req.body.productType || ''; // Get product type from form data (e.g., "spring water")
 
     // Try image recognition if image is provided
@@ -373,12 +374,20 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
         
         const aiProductInfo = hasGeminiKey ? await visionService.detectProductWithAI(req.file.buffer) : null;
         
+        // Store AI product info for later use in Aldi scraper
+        if (aiProductInfo) {
+          aiProductInfoForScraper = aiProductInfo;
+        }
+        
         if (aiProductInfo && aiProductInfo.fullName && aiProductInfo.fullName !== 'Unknown') {
           productName = aiProductInfo.fullName;
           console.log('✅ AI identified product:', productName);
           console.log('   Brand:', aiProductInfo.brand);
           console.log('   Product:', aiProductInfo.product);
           console.log('   Size:', aiProductInfo.size || 'Unknown');
+          
+          // Store AI info for scraper
+          aiProductInfoForScraper = aiProductInfo;
           
           // Extract size from AI result, default to "1 Each" if not found
           const productSize = (aiProductInfo.size && aiProductInfo.size !== 'Unknown') 
@@ -673,10 +682,64 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
     // Also try Aldi and Publix web scraping for product links
     if (productName) {
       // Try Aldi web scraping
+      // Use brand + product details if available from AI
       let aldiPrice = null;
       try {
-        console.log(`🛒 Trying Aldi web scraping for: ${productName}`);
-        aldiPrice = await aldiScraperService.getAldiPrice(productName);
+        // Get brand and product details from AI result if available
+        // Check both current aiProductInfo and stored aiProductInfoForScraper
+        let brand = null;
+        let productDetails = null;
+        const aiInfo = aiProductInfoForScraper || (typeof aiProductInfo !== 'undefined' ? aiProductInfo : null);
+        
+        if (aiInfo) {
+          brand = aiInfo.brand && aiInfo.brand !== 'Unknown' ? aiInfo.brand : null;
+          productDetails = aiInfo.product && aiInfo.product !== 'Unknown' ? aiInfo.product : null;
+          console.log(`📋 AI extracted - Brand: ${brand || 'N/A'}, Product: ${productDetails || 'N/A'}`);
+        }
+        
+        // Try multiple search strategies
+        const searchQueries = [];
+        
+        // Strategy 1: Full product name (original)
+        if (productName) {
+          searchQueries.push({ query: productName, strategy: 'fullName' });
+        }
+        
+        // Strategy 2: Brand + Product Details (if available)
+        if (brand && productDetails) {
+          const brandProductQuery = `${brand} ${productDetails}`;
+          searchQueries.push({ query: brandProductQuery, strategy: 'brand+product' });
+          console.log(`🔍 Will try brand+product search: "${brandProductQuery}"`);
+        }
+        
+        // Strategy 3: Brand + Key words from product name
+        if (brand && productName) {
+          // Extract key words from product name (remove common words)
+          const words = productName.toLowerCase().split(/\s+/);
+          const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'from', 'by'];
+          const keyWords = words.filter(word => word.length > 3 && !stopWords.includes(word)).slice(0, 3);
+          if (keyWords.length > 0) {
+            const brandKeyWordsQuery = `${brand} ${keyWords.join(' ')}`;
+            searchQueries.push({ query: brandKeyWordsQuery, strategy: 'brand+keywords' });
+            console.log(`🔍 Will try brand+keywords search: "${brandKeyWordsQuery}"`);
+          }
+        }
+        
+        // Strategy 4: Just product details (if available and different from full name)
+        if (productDetails && productDetails !== productName) {
+          searchQueries.push({ query: productDetails, strategy: 'productOnly' });
+        }
+        
+        // Try each search strategy until we find results
+        for (const { query, strategy } of searchQueries) {
+          console.log(`🛒 Trying Aldi web scraping (${strategy}): "${query}"`);
+          aldiPrice = await aldiScraperService.getAldiPrice(query, { brand, productDetails });
+          
+          if (aldiPrice && aldiPrice.price > 0) {
+            console.log(`✅ Found Aldi price using ${strategy} strategy: $${aldiPrice.price.toFixed(2)}`);
+            break; // Stop trying other strategies if we found a result
+          }
+        }
         if (aldiPrice && aldiPrice.price > 0) {
           console.log(`✅ Found Aldi price: $${aldiPrice.price.toFixed(2)}`);
           // Add Aldi to productLinks if not already present
