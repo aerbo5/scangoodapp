@@ -34,10 +34,11 @@ const CameraScreen = ({
     
     setIsScanning(true);
     try {
-      // Gerçek resim çek
+      // Gerçek resim çek - yüksek kalite
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
+        quality: 1.0, // Maksimum kalite
         base64: false,
+        skipProcessing: false, // Tüm işlemleri yap
       });
       
       // Çekilen resmi state'e kaydet
@@ -470,15 +471,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.lg,
   },
   previewImage: {
-    width: '90%',
-    maxWidth: width * 0.9,
-    maxHeight: height * 0.7,
+    width: width * 0.8,
+    maxWidth: width * 0.8,
+    maxHeight: height * 0.6,
     resizeMode: 'contain',
-    alignSelf: 'center',
   },
   previewOverlay: {
     position: 'absolute',

@@ -150,8 +150,8 @@ export default function App() {
   const pickImageFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
+      allowsEditing: false, // Resmi kırpmayı kapat - orijinal boyutta kalsın
+      quality: 1.0, // Maksimum kalite
     });
 
     if (!result.canceled) {
