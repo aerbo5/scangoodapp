@@ -459,13 +459,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xl,
   },
   previewImage: {
-    width: width * 0.5,
-    maxWidth: width * 0.5,
-    maxHeight: height * 0.35,
+    width: width,
+    height: height,
     resizeMode: 'contain',
   },
   previewOverlay: {

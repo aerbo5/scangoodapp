@@ -444,7 +444,8 @@ const styles = StyleSheet.create({
   },
   productImageContainer: {
     width: '100%',
-    height: 200,
+    minHeight: 300,
+    maxHeight: 500,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
@@ -455,6 +456,7 @@ const styles = StyleSheet.create({
   productImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'contain',
   },
   productImagePlaceholder: {
     fontSize: 100,
