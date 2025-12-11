@@ -70,7 +70,6 @@ app.use(cors({
     'http://localhost:8081',
     'http://localhost:19006',
     'http://localhost:3000',
-    /\.netlify\.app$/,  // Allow all Netlify subdomains
     /\.vercel\.app$/,   // Allow all Vercel subdomains
     /\.render\.com$/,   // Allow Render deployments ✅
     /\.ngrok-free\.app$/,  // Allow ngrok free URLs
