@@ -2,30 +2,24 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 
 // API Base URL Configuration
-// Development: ngrok or localhost
-// Production: Netlify Functions proxy or direct backend URL
+// Development: localhost
+// Production: Vercel with Render.com backend
 
 const getApiBaseUrl = () => {
   try {
-    // Priority 1: Check if REACT_APP_API_URL is set (Netlify environment variable)
+    // Priority 1: Check if REACT_APP_API_URL is set (environment variable)
     if (process.env.REACT_APP_API_URL) {
       console.log('🌐 Using REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
       return process.env.REACT_APP_API_URL;
     }
     
-    // Priority 2: Check if we're on Vercel or Netlify (production)
+    // Priority 2: Check if we're on Vercel (production)
     if (typeof window !== 'undefined' && window.location && window.location.hostname) {
       const hostname = window.location.hostname;
       
       // If on Vercel, use Render backend
       if (hostname.includes('vercel.app')) {
         console.log('🌐 Detected Vercel, using Render backend URL');
-        return 'https://scangood-backend.onrender.com/api';
-      }
-      
-      // If on Netlify, use Render backend
-      if (hostname.includes('netlify.app')) {
-        console.log('🌐 Detected Netlify, using Render backend URL');
         return 'https://scangood-backend.onrender.com/api';
       }
     }
