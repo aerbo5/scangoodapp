@@ -25,8 +25,11 @@ const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, origin
     }
   };
 
-  const currentTotal = calculateTotal(scannedItems);
-  const savings = youSave || (originalTotal ? (originalTotal - currentTotal) : 0);
+  // Ensure all values are numbers before using toFixed
+  const currentTotal = parseFloat(calculateTotal(scannedItems) || 0);
+  const originalTotalNum = parseFloat(originalTotal || 0);
+  const youSaveNum = parseFloat(youSave || 0);
+  const savings = youSaveNum || (originalTotalNum > 0 ? (originalTotalNum - currentTotal) : 0);
 
   return (
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
@@ -93,10 +96,10 @@ const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, origin
                   <Text style={styles.summaryLabel}>{t('list.youPaid') || 'You Paid'}</Text>
                   <Text style={styles.summaryValue}>${currentTotal.toFixed(2)}</Text>
                 </View>
-                {originalTotal && originalTotal > 0 && (
+                {originalTotalNum > 0 && (
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>{t('list.originalTotal') || 'Original Total'}</Text>
-                    <Text style={styles.summaryValueOriginal}>${originalTotal.toFixed(2)}</Text>
+                    <Text style={styles.summaryValueOriginal}>${originalTotalNum.toFixed(2)}</Text>
                   </View>
                 )}
                 {savings > 0 && (
