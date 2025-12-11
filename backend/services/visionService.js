@@ -1125,6 +1125,22 @@ const parseReceiptText = (text) => {
       continue;
     }
     
+    // FIRST: Check if line should be skipped entirely (before checking for price)
+    // This prevents excluded fields from being processed at all
+    const shouldSkipLine = skipPatterns.some(pattern => pattern.test(line)) ||
+                           /saved/i.test(line) || // Any line containing "saved"
+                           /store\s*manager/i.test(line) ||
+                           /zip\s*code/i.test(line) ||
+                           /^\d{5}(-\d{4})?$/.test(line) || // Just ZIP code
+                           /^\d{3}-\d{3}-\d{4}$/.test(line) || // Just phone number
+                           /^(store|manager|cashier|register|terminal|lane|phone|zip|city|state|address|street|avenue|road|boulevard|drive|way|circle|court)$/i.test(line);
+    
+    if (shouldSkipLine) {
+      console.log(`  ⏭️  Skipping excluded line: "${line}"`);
+      ignoredElements.nonItem.push(line);
+      continue;
+    }
+    
     // Check if line contains a price
     const priceMatch = line.match(pricePattern);
     const hasPrice = priceMatch && parseFloat(priceMatch[1]) > 0 && parseFloat(priceMatch[1]) < 10000;
