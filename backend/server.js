@@ -395,17 +395,28 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
             : '1 Each';
           
           // Create product object from AI result
+          // Use product details (not fullName) for name if available, otherwise use fullName
+          const productNameForDisplay = (aiProductInfo.product && aiProductInfo.product !== 'Unknown') 
+            ? aiProductInfo.product 
+            : productName;
+          
           product = {
-            name: productName,
+            brand: (aiProductInfo.brand && aiProductInfo.brand !== 'Unknown') ? aiProductInfo.brand : null,
+            name: productNameForDisplay,
             size: productSize,
+            weight: productSize, // Also include as weight for compatibility
             category: aiProductInfo.product || 'General',
             labels: [
               aiProductInfo.brand && aiProductInfo.brand !== 'Unknown' ? aiProductInfo.brand : null,
               aiProductInfo.product && aiProductInfo.product !== 'Unknown' ? aiProductInfo.product : null,
             ].filter(Boolean),
-            stores: [], // Will be populated by Custom Search API
+            stores: null, // Will be populated by web scraping (store name)
+            price: null, // Will be populated by web scraping
           };
           console.log('💡 Created product object from AI result');
+          console.log('   Brand:', product.brand || 'N/A');
+          console.log('   Name:', product.name);
+          console.log('   Size/Weight:', product.size);
         } else {
           if (hasGeminiKey) {
             console.log('⚠️ AI could not identify product, trying OCR...');
@@ -501,11 +512,14 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
             if (!product) {
               console.log('💡 Creating product from OCR-extracted name');
               product = {
+                brand: null,
                 name: productName,
                 size: '1 Each',
+                weight: '1 Each',
                 category: 'General',
                 labels: [],
-                stores: [],
+                stores: null,
+                price: null,
               };
             }
           } else {
@@ -552,11 +566,14 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
           // Create dynamic product from Vision API labels
           console.log('💡 Creating dynamic product from Vision API labels');
           product = {
+            brand: null,
             name: productName, // Use the productName we extracted from labels
             size: '1 Each',
+            weight: '1 Each',
             category: labels[0].description,
             labels: labels.map(l => l.description),
-            stores: [], // Will be populated by Custom Search API (no dummy data)
+            stores: null, // Will be populated by web scraping
+            price: null, // Will be populated by web scraping
           };
           // productName is already set from labels above, don't override it
         }
@@ -570,11 +587,14 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
     if (!product && productName && productName.trim().length > 0) {
       console.log('💡 Creating product from extracted name:', productName);
       product = {
+        brand: null,
         name: productName,
         size: '1 Each',
+        weight: '1 Each',
         category: 'General',
         labels: labels ? labels.map(l => l.description) : [],
-        stores: [],
+        stores: null,
+        price: null,
       };
     }
     
@@ -742,6 +762,14 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
         }
         if (aldiPrice && aldiPrice.price > 0) {
           console.log(`✅ Found Aldi price: $${aldiPrice.price.toFixed(2)}`);
+          
+          // Update product object with store and price
+          if (product) {
+            product.stores = 'Aldi';
+            product.price = aldiPrice.price;
+            console.log(`📦 Updated product with store: ${product.stores}, price: $${product.price.toFixed(2)}`);
+          }
+          
           // Add Aldi to productLinks if not already present
           if (!productLinks.exactMatches) {
             productLinks.exactMatches = [];
