@@ -167,9 +167,13 @@ export default function App() {
         // Call backend API for receipt scanning
         console.log('🧾 Scanning receipt...');
         result = await scanReceipt(imageUri);
+        console.log('📋 Receipt scan result:', result);
         
-        if (result.success && result.items && result.items.length > 0) {
+        if (result && result.success && result.items && result.items.length > 0) {
           console.log(`✅ Receipt scanned successfully: ${result.items.length} items found`);
+          console.log('📦 Items:', result.items);
+          
+          // Set scanned items FIRST
           setScannedItems(result.items);
           
           // Store the original receipt store name for price comparison
@@ -179,23 +183,34 @@ export default function App() {
           }
           
           // Save to history
-          const historyEntry = {
-            items: result.items,
-            total: result.youPaid || result.total,
-            store: result.store,
-            address: result.address,
-            date: result.date,
-            time: result.time,
-            youSave: result.youSave,
-          };
-          await saveReceiptToHistory(historyEntry);
+          try {
+            const historyEntry = {
+              items: result.items,
+              total: result.youPaid || result.total,
+              store: result.store,
+              address: result.address,
+              date: result.date,
+              time: result.time,
+              youSave: result.youSave,
+            };
+            await saveReceiptToHistory(historyEntry);
+            console.log('💾 Receipt saved to history');
+          } catch (historyError) {
+            console.warn('⚠️ Failed to save receipt to history:', historyError);
+            // Don't block navigation if history save fails
+          }
           
-          showScreen('list');
+          // Navigate to list screen AFTER state is set
+          console.log('🔄 Navigating to list screen...');
+          setTimeout(() => {
+            showScreen('list');
+            console.log('✅ Navigation completed');
+          }, 100); // Small delay to ensure state is set
         } else {
-          console.error('❌ Receipt scan failed:', result.error || 'No items found');
+          console.error('❌ Receipt scan failed:', result?.error || 'No items found', result);
           Alert.alert(
             'Receipt Scan Failed',
-            result.error || 'Could not extract items from receipt. Please try scanning again with better lighting.',
+            result?.error || 'Could not extract items from receipt. Please try scanning again with better lighting.',
             [{ text: 'OK' }]
           );
         }
