@@ -439,11 +439,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: Spacing.md,
   },
   previewImage: {
-    width: width,
-    height: height * 0.8,
+    width: '100%',
+    maxWidth: width * 0.85,
+    maxHeight: height * 0.55,
     resizeMode: 'contain',
+    alignSelf: 'center',
   },
   previewOverlay: {
     position: 'absolute',
