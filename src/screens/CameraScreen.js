@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'react-native';
 import { CameraView } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +21,7 @@ const CameraScreen = ({
   const [isScanning, setIsScanning] = useState(false);
   const [hasScanned, setHasScanned] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
 
   const scanInstructions = {
     product: t('camera.positionProduct'),
@@ -41,6 +42,20 @@ const CameraScreen = ({
       
       // Çekilen resmi state'e kaydet
       setCapturedImage(photo.uri);
+      
+      // Resim boyutlarını al
+      if (photo.width && photo.height) {
+        setImageDimensions({ width: photo.width, height: photo.height });
+      } else {
+        // Boyutlar yoksa, resmi yükleyip boyutlarını al
+        Image.getSize(photo.uri, (imgWidth, imgHeight) => {
+          setImageDimensions({ width: imgWidth, height: imgHeight });
+        }, (error) => {
+          console.warn('Could not get image dimensions:', error);
+          setImageDimensions({ width: 0, height: 0 });
+        });
+      }
+      
       setIsScanning(false);
       setHasScanned(true);
     } catch (error) {
@@ -64,6 +79,7 @@ const CameraScreen = ({
     setHasScanned(false);
     setIsScanning(false);
     setCapturedImage(null);
+    setImageDimensions({ width: 0, height: 0 });
   };
 
   if (hasPermission === null) {
@@ -132,7 +148,22 @@ const CameraScreen = ({
       {hasScanned && capturedImage ? (
         // Resim çekildikten sonra resmi göster
         <View style={styles.previewContainer}>
-          <Image source={{ uri: capturedImage }} style={styles.previewImage} />
+          <Image 
+            source={{ uri: capturedImage }} 
+            style={[
+              styles.previewImage,
+              imageDimensions.width > 0 && imageDimensions.height > 0 && {
+                aspectRatio: imageDimensions.width / imageDimensions.height,
+              }
+            ]}
+            onLoad={(e) => {
+              // Resim yüklendiğinde gerçek boyutları al
+              const { width: imgWidth, height: imgHeight } = e.nativeEvent.source;
+              if (imgWidth && imgHeight && (imageDimensions.width === 0 || imageDimensions.height === 0)) {
+                setImageDimensions({ width: imgWidth, height: imgHeight });
+              }
+            }}
+          />
           <View style={styles.previewOverlay}>
             <Text style={styles.previewText}>{t('camera.imageCaptured') || 'Image Captured'}</Text>
           </View>
@@ -439,13 +470,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.lg,
   },
   previewImage: {
-    width: '100%',
-    maxWidth: width * 0.7,
-    maxHeight: height * 0.45,
+    width: '90%',
+    maxWidth: width * 0.9,
+    maxHeight: height * 0.7,
     resizeMode: 'contain',
     alignSelf: 'center',
   },
