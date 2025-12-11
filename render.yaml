@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: scangood-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    # Environment variables will be set in Render dashboard:
+    # - AZURE_COMPUTER_VISION_KEY
+    # - AZURE_COMPUTER_VISION_ENDPOINT
+    # - GOOGLE_GEMINI_API_KEY
+    # - GOOGLE_CLOUD_VISION_API_KEY
+    # - GOOGLE_CUSTOM_SEARCH_API_KEY
+    # - GOOGLE_CUSTOM_SEARCH_ENGINE_ID
+

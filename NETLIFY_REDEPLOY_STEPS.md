@@ -81,3 +81,5 @@ Deploy tamamlandıktan sonra:
 
 **Deploy tamamlandığında test edin ve sonucu paylaşın!**
 
+
+

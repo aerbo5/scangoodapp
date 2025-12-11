@@ -79,3 +79,5 @@ Deploy tamamlandıktan sonra:
 - ✅ Home screen'de logo güncellenecek
 - ✅ Login screen'de logo güncellenecek
 
+
+

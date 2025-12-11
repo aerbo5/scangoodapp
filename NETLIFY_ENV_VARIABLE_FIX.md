@@ -105,3 +105,5 @@ Environment variable eklendikten ve deploy yeniden başlatıldıktan sonra:
 - ✅ `http://localhost:3001` yerine Railway URL'i kullanılacak
 - ✅ API istekleri çalışacak
 
+
+

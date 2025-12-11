@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Animated, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Animated, Alert, Platform, StatusBar } from 'react-native';
 import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { useLanguage } from '../context/LanguageContext';
 import { sendVerificationCode, verifyPhoneCode } from '../services/authService';
@@ -76,12 +76,12 @@ const PhoneLoginScreen = ({ onNavigate, fadeAnim }) => {
 
     try {
       setIsLoading(true);
-      
+
       // If Firebase is configured and confirmation exists, verify with Firebase
       if (confirmation) {
         try {
           const user = await verifyPhoneCode(confirmation, code);
-          
+
           // Check if user profile exists, if not create one
           let userProfile = await getUserProfile(user.uid);
           if (!userProfile) {
@@ -91,7 +91,7 @@ const PhoneLoginScreen = ({ onNavigate, fadeAnim }) => {
               email: user.email || '',
             });
           }
-          
+
           Alert.alert(t('login.success'), t('login.codeVerified'), [
             { text: t('common.continue'), onPress: () => onNavigate('home') }
           ]);
@@ -124,7 +124,7 @@ const PhoneLoginScreen = ({ onNavigate, fadeAnim }) => {
         'A new verification code has been sent to your phone.',
         [{ text: 'OK' }]
       );
-      
+
       // If you have phone number, uncomment this:
       // const phoneNumber = '+1234567890'; // Get from props or state
       // const conf = await sendVerificationCode(phoneNumber);
@@ -139,7 +139,7 @@ const PhoneLoginScreen = ({ onNavigate, fadeAnim }) => {
   return (
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
       <View style={styles.container}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => onNavigate('login')}
         >
@@ -169,7 +169,7 @@ const PhoneLoginScreen = ({ onNavigate, fadeAnim }) => {
             ))}
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.verifyButton,
               phoneCode.join('').length === 6 && styles.verifyButtonActive,
@@ -186,7 +186,7 @@ const PhoneLoginScreen = ({ onNavigate, fadeAnim }) => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.resendButton}
             onPress={handleResendCode}
             disabled={isLoading}
@@ -202,30 +202,32 @@ const PhoneLoginScreen = ({ onNavigate, fadeAnim }) => {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: Colors.backgroundGreen,
+    backgroundColor: Colors.white,
   },
   container: {
     flex: 1,
     padding: Spacing.xl,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : Spacing.xl,
   },
   backButton: {
-    marginTop: Spacing.xl,
+    padding: Spacing.sm,
+    marginLeft: -Spacing.sm,
     marginBottom: Spacing.lg,
   },
   backButtonText: {
-    ...Typography.bodyBold,
+    ...Typography.body,
     fontSize: 16,
-    color: Colors.primary,
+    color: Colors.textSecondary,
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingTop: Spacing.xl,
   },
   title: {
-    ...Typography.titleMedium,
+    ...Typography.h2,
     color: Colors.text,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
     textAlign: 'center',
   },
   subtitle: {
@@ -236,81 +238,68 @@ const styles = StyleSheet.create({
   },
   codeContainer: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginBottom: Spacing.xl * 2,
+    justifyContent: 'center',
+    width: '100%',
   },
   codeInput: {
-    width: 56,
-    height: 64,
-    borderWidth: 2.5,
-    borderColor: Colors.primaryLight,
-    borderRadius: 20,
+    width: 48,
+    height: 56,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
     textAlign: 'center',
-    ...Typography.titleMedium,
-    fontSize: 28,
+    ...Typography.h3,
     color: Colors.text,
-    backgroundColor: Colors.white,
-    shadowColor: Colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    backgroundColor: Colors.backgroundSecondary,
   },
   codeInputFilled: {
     borderColor: Colors.primary,
-    backgroundColor: Colors.backgroundGreen,
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
+    backgroundColor: Colors.white,
+    borderWidth: 1.5,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   verifyButton: {
     width: '100%',
-    maxWidth: 400,
-    height: 64,
-    backgroundColor: Colors.white,
-    borderRadius: 24,
+    height: 56,
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
-    borderWidth: 2,
-    borderColor: Colors.primaryLight,
     shadowColor: Colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   verifyButtonActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    backgroundColor: Colors.primaryDark,
   },
   verifyButtonText: {
-    ...Typography.bodyBold,
-    fontSize: 18,
-    color: Colors.textSecondary,
+    ...Typography.button,
+    color: Colors.white,
   },
   verifyButtonTextActive: {
     color: Colors.white,
   },
   verifyButtonDisabled: {
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: Colors.border,
+    shadowOpacity: 0,
   },
   resendButton: {
     padding: Spacing.md,
   },
   resendText: {
     ...Typography.body,
-    color: Colors.primary,
+    color: Colors.secondary,
     textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

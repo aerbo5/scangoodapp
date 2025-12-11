@@ -145,3 +145,5 @@ Deploy tamamlandığında:
 **Sorularınız mı var?** Logları kontrol edin veya hata mesajlarını paylaşın.
 
 
+
+

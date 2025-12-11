@@ -153,3 +153,5 @@ GOOGLE_CLOUD_VISION_API_KEY=your-google-vision-key
 
 Bu yapılandırma hem güvenlik hem de performans açısından doğru yaklaşımdır! 🔒
 
+
+

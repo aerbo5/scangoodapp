@@ -88,6 +88,14 @@ const extractTextFromImage = async (imageBuffer) => {
   if (useAzureVision && azureKey && azureEndpoint) {
     try {
       console.log('📸 Using Azure Computer Vision for OCR...');
+      // Increase timeout for large images (long receipts)
+      const imageSizeMB = imageBuffer.length / (1024 * 1024);
+      const baseTimeout = 30000; // 30 seconds base
+      const additionalTimeout = Math.ceil(imageSizeMB * 5000); // +5 seconds per MB
+      const requestTimeout = Math.min(baseTimeout + additionalTimeout, 60000); // Max 60 seconds
+      
+      console.log(`📊 Image size: ${imageSizeMB.toFixed(2)}MB, using ${requestTimeout}ms timeout`);
+      
       const response = await axios.post(
         `${azureEndpoint}/vision/v3.2/read/analyze`,
         imageBuffer,
@@ -96,7 +104,7 @@ const extractTextFromImage = async (imageBuffer) => {
             'Ocp-Apim-Subscription-Key': azureKey,
             'Content-Type': 'application/octet-stream',
           },
-          timeout: 30000,
+          timeout: requestTimeout,
         }
       );
       
@@ -104,15 +112,26 @@ const extractTextFromImage = async (imageBuffer) => {
       const operationLocation = response.headers['operation-location'];
       if (operationLocation) {
         console.log('⏳ Polling Azure OCR results...');
-        // Poll for results (max 20 attempts, 1 second intervals)
-        for (let i = 0; i < 20; i++) {
+        console.log('📊 Image size:', imageBuffer.length, 'bytes');
+        
+        // For long receipts, increase polling attempts
+        // Calculate max attempts based on image size (larger images take longer)
+        const imageSizeMB = imageBuffer.length / (1024 * 1024);
+        const baseAttempts = 30; // Base attempts for normal receipts
+        const additionalAttempts = Math.ceil(imageSizeMB * 10); // +10 attempts per MB
+        const maxAttempts = Math.min(baseAttempts + additionalAttempts, 90); // Max 90 attempts (90 seconds)
+        
+        console.log(`📊 Image size: ${imageSizeMB.toFixed(2)}MB, using ${maxAttempts} polling attempts (max 90 seconds)`);
+        
+        // Poll for results with adaptive timeout
+        for (let i = 0; i < maxAttempts; i++) {
           await new Promise(resolve => setTimeout(resolve, 1000));
           try {
             const resultResponse = await axios.get(operationLocation, {
               headers: {
                 'Ocp-Apim-Subscription-Key': azureKey,
               },
-              timeout: 10000,
+              timeout: 15000, // Increased timeout for polling requests
             });
             
             if (resultResponse.data.status === 'succeeded') {
@@ -122,7 +141,8 @@ const extractTextFromImage = async (imageBuffer) => {
                 const lines = readResults[0].lines || [];
                 const text = lines.map(line => line.text).join('\n');
                 if (text && text.length > 0) {
-                  console.log('✅ Azure OCR extracted text, length:', text.length);
+                  console.log(`✅ Azure OCR extracted text, length: ${text.length} chars (${readResults[0].lines.length} lines)`);
+                  console.log(`⏱️  Completed in ${i + 1} seconds`);
                   return text;
                 }
               }
@@ -132,13 +152,19 @@ const extractTextFromImage = async (imageBuffer) => {
               console.error('❌ Azure OCR failed:', resultResponse.data);
               break;
             }
+            
+            // Log progress for long receipts
+            if (i > 0 && i % 10 === 0) {
+              console.log(`⏳ Still processing... (${i + 1}/${maxAttempts} seconds)`);
+            }
+            
             // Continue polling if status is 'running' or 'notStarted'
           } catch (pollError) {
             console.error('❌ Error polling Azure OCR results:', pollError.message);
-            if (i === 19) break; // Last attempt failed
+            if (i === maxAttempts - 1) break; // Last attempt failed
           }
         }
-        console.log('⚠️ Azure OCR polling timeout - no text extracted');
+        console.log(`⚠️ Azure OCR polling timeout after ${maxAttempts} seconds - no text extracted`);
       } else {
         console.log('⚠️ Azure OCR did not return operation location');
       }
@@ -183,6 +209,13 @@ const extractTextFromImage = async (imageBuffer) => {
         ],
       };
       
+      // Increase timeout for large images (long receipts)
+      const imageSizeMB = imageBuffer.length / (1024 * 1024);
+      const baseTimeout = 30000; // 30 seconds base
+      const additionalTimeout = Math.ceil(imageSizeMB * 5000); // +5 seconds per MB
+      const requestTimeout = Math.min(baseTimeout + additionalTimeout, 60000); // Max 60 seconds
+      
+      console.log(`📊 Image size: ${imageSizeMB.toFixed(2)}MB, using ${requestTimeout}ms timeout`);
       console.log('🌐 Sending request to Google Vision API...');
       const response = await axios.post(
         `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
@@ -191,7 +224,7 @@ const extractTextFromImage = async (imageBuffer) => {
           headers: {
             'Content-Type': 'application/json',
           },
-          timeout: 30000,
+          timeout: requestTimeout,
         }
       );
 

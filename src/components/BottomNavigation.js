@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
 import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { Icons } from '../constants/icons';
 import { useLanguage } from '../context/LanguageContext';
@@ -72,78 +72,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: Spacing.md,
-    paddingBottom: Spacing.lg + 5,
-    paddingTop: Spacing.md,
+    paddingVertical: Spacing.xs,
+    paddingBottom: Platform.OS === 'ios' ? Spacing.xl : Spacing.md,
+    backgroundColor: Colors.white,
     borderTopWidth: 1,
-    borderTopColor: '#d4e8dc', // Açık yeşil border - backgroundGreen ile uyumlu
-    backgroundColor: Colors.backgroundGreen,
-    shadowColor: Colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    borderTopColor: Colors.borderLight,
     elevation: 8,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   navItem: {
     alignItems: 'center',
-    gap: Spacing.xs,
+    justifyContent: 'center',
     flex: 1,
-    paddingVertical: Spacing.xs,
+    height: 60,
   },
   navItemActive: {
-    borderRadius: BorderRadius.md,
+    // Active state container if needed
   },
   navIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.white,
-    borderWidth: 1.5,
-    borderColor: '#d4e8dc', // Açık yeşil border
+    marginBottom: 2,
   },
   navIconContainerActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 5,
+    backgroundColor: Colors.primaryExtraLight,
   },
   navIcon: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: Colors.primary, // Yeşil icon
+    fontSize: 24,
+    color: Colors.textSecondary,
   },
   navIconActive: {
-    color: Colors.white,
-    fontWeight: '700',
+    color: Colors.primary,
   },
   navIconImage: {
     width: 24,
     height: 24,
-    tintColor: Colors.primary, // Yeşil icon
+    tintColor: Colors.textSecondary,
   },
   navIconImageActive: {
-    tintColor: Colors.white,
+    tintColor: Colors.primary,
   },
   navText: {
-    fontSize: 12,
-    color: Colors.primary, // Yeşil text
-    fontWeight: '600',
-    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
   navTextActive: {
     color: Colors.primary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
 

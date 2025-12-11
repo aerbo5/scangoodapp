@@ -90,3 +90,5 @@ Deploy yeniden başlatıldıktan ve browser cache temizlendikten sonra:
 
 **ŞİMDİ YAPIN:** Netlify'da deploy'u yeniden başlatın!
 
+
+
