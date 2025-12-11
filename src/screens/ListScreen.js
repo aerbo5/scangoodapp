@@ -81,7 +81,7 @@ const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, origin
                       )}
                     </View>
                     <View style={styles.itemPriceContainer}>
-                      <Text style={styles.itemPrice}>${((item.price || 0)).toFixed(2)}</Text>
+                      <Text style={styles.itemPrice}>${parseFloat(item.price || 0).toFixed(2)}</Text>
                       {item.quantity > 1 && (
                         <Text style={styles.itemQuantity}>x{item.quantity}</Text>
                       )}
