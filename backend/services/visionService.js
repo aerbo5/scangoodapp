@@ -750,6 +750,7 @@ const parseReceiptText = (text) => {
   let totalDue = null;
   
   // ========== PATTERNS FOR IGNORING ELEMENTS ==========
+  // Based on comprehensive exclude_fields list
   
   // Payment info patterns (MUST IGNORE)
   const paymentInfoPatterns = [
@@ -770,20 +771,50 @@ const parseReceiptText = (text) => {
     /signature/i,
     /last\s*4\s*digits/i,
     /\*\*\*\*\s*\d{4}/, // Masked card number
+    /payment\s*method/i,
+    /aid/i,
+    /arqc/i,
+    /tvr/i,
+    /change\s*given/i,
+    /card\s*type/i,
   ];
   
-  // Store info patterns (MUST IGNORE)
+  // Store info patterns (MUST IGNORE) - Comprehensive list
   const storeInfoPatterns = [
     /^(walmart|target|publix|whole\s*foods|kroger|safeway|winn.?dixie|aldi|costco|sams\s*club|trader\s*joes?)/i,
     /store\s*#/i,
+    /store\s*number/i,
+    /store\s*id/i,
+    /store\s*name/i,
+    /store\s*address/i,
     /register/i,
+    /register\s*number/i,
+    /terminal\s*number/i,
+    /lane\s*number/i,
     /cashier/i,
+    /cashier\s*name/i,
+    /cashier\s*id/i,
+    /store\s*manager/i,
+    /manager\s*name/i,
     /phone/i,
+    /phone\s*number/i,
+    /customer\s*service/i,
+    /customer\s*service\s*number/i,
     /^\d{3}-\d{3}-\d{4}/, // Phone numbers
+    /^\d{10,}/, // Phone numbers without dashes
     /\b(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|cir|court|ct)\b/i,
+    /\b\d{5}(-\d{4})?\b/, // ZIP codes (5 digits or 5+4)
+    /zip\s*code/i,
+    /city/i,
+    /state/i,
+    /address/i,
     /survey/i,
     /logo/i,
     /slogan/i,
+    /store\s*hours/i,
+    /website/i,
+    /www\./i,
+    /http/i,
   ];
   
   // Store name patterns (for extraction but mark as ignored)
@@ -791,38 +822,85 @@ const parseReceiptText = (text) => {
     /^(walmart|target|publix|whole\s*foods|kroger|safeway|winn.?dixie|aldi|costco|sams\s*club|trader\s*joes?)/i,
   ];
   
-  // Metadata patterns (MUST IGNORE)
+  // Metadata patterns (MUST IGNORE) - Date/Time
   const metadataPatterns = [
     /(\d{1,2}\/\d{1,2}\/\d{2,4})/, // Date
     /(\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?)/i, // Time
+    /purchase\s*date/i,
+    /purchase\s*time/i,
+    /transaction\s*timestamp/i,
     /transaction\s*#/i,
     /receipt\s*#/i,
+    /receipt\s*number/i,
     /^#\d+/, // Receipt numbers
     /barcode/i,
     /qr\s*code/i,
+    /receipt\s*barcode/i,
+    /loyalty\s*barcode/i,
+    /coupon\s*barcode/i,
+  ];
+  
+  // Loyalty/Membership patterns (MUST IGNORE)
+  const loyaltyPatterns = [
     /loyalty/i,
-    /points/i,
-    /balance/i,
+    /loyalty\s*number/i,
     /rewards/i,
+    /rewards\s*number/i,
+    /membership/i,
+    /membership\s*id/i,
+    /club\s*member/i,
+    /club\s*member\s*id/i,
+    /digital\s*coupon\s*code/i,
+    /loyalty\s*savings/i,
+    /reward\s*savings/i,
+    /fuel\s*points/i,
+    /fuel\s*rewards/i,
+    /points\s*earned/i,
+    /points\s*balance/i,
   ];
   
   // Footer/coupons patterns (MUST IGNORE)
   const footerCouponPatterns = [
     /thank\s*you/i,
+    /thank\s*you\s*message/i,
     /return\s*policy/i,
+    /refund\s*policy/i,
+    /survey/i,
     /survey\s*code/i,
+    /survey\s*invitation/i,
     /coupon/i,
+    /store\s*coupon/i,
+    /manufacturer\s*coupon/i,
+    /digital\s*coupon/i,
+    /bogo\s*discount/i,
+    /promo\s*savings/i,
+    /deal\s*savings/i,
+    /club\s*savings/i,
+    /loyalty\s*price\s*adjustment/i,
     /promotion/i,
     /marketing/i,
+    /promotional\s*message/i,
     /visit\s*us/i,
+    /visit\s*us\s*online/i,
     /website/i,
     /www\./i,
     /http/i,
+    /alcohol\s*warning/i,
+    /tobacco\s*warning/i,
+    /age\s*verification/i,
   ];
   
-  // Non-item patterns (MUST IGNORE)
+  // Non-item patterns (MUST IGNORE) - Totals, Taxes, Fees
   const nonItemPatterns = [
     /^(total|subtotal|tax|discount|change|cash|card|receipt|net\s*sales|sales\s*tax)/i,
+    /savings\s*total/i,
+    /total\s*before\s*tax/i,
+    /total\s*after\s*tax/i,
+    /balance\s*due/i,
+    /amount\s*paid/i,
+    /grand\s*total/i,
+    /cashback\s*amount/i,
+    /roundup\s*donation/i,
     /return\s*value/i,
     /total\s*fsa/i,
     /total\s*rx/i,
@@ -830,6 +908,25 @@ const parseReceiptText = (text) => {
     /approved\s*hra/i,
     /change\s*due/i,
     /cash\s*back/i,
+    /tax\s*total/i,
+    /state\s*tax/i,
+    /county\s*tax/i,
+    /city\s*tax/i,
+    /environmental\s*fee/i,
+    /bottle\s*deposit/i,
+    /crv\s*fee/i,
+    /bag\s*fee/i,
+    /service\s*fee/i,
+    /saved/i, // "SAVED" text on receipts
+    /you\s*saved/i,
+    /total\s*saved/i,
+  ];
+  
+  // Special sections patterns (MUST IGNORE)
+  const specialSectionPatterns = [
+    /fuel\s*rewards\s*summary/i,
+    /donation\s*info/i,
+    /membership\s*renewal/i,
   ];
   
   // Date/Time patterns (for extraction but mark as ignored)
@@ -844,13 +941,17 @@ const parseReceiptText = (text) => {
     ...paymentInfoPatterns,
     ...storeInfoPatterns,
     ...metadataPatterns,
+    ...loyaltyPatterns,
     ...footerCouponPatterns,
     ...nonItemPatterns,
+    ...specialSectionPatterns,
     /^markdown:/i,                           // Markdown lines (handled separately for discounts)
     /tare:/i,                                // Tare weight
     /^\d+\.\d+\s*(?:lb|lbs|kg|g|oz)\s*@/i,  // Weight info like "0.21 lb @"
     /\[.*tare.*\]/i,                         // [Tare: ...] brackets
     /^(lb|lbs|kg|g|oz)$/i,                  // Just weight units
+    /^saved$/i,                             // Just "SAVED" text
+    /^you\s*saved$/i,                        // "YOU SAVED" text
   ];
   
   // Check if line is weight/measurement info (not a product)
