@@ -471,11 +471,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.xl,
   },
   previewImage: {
-    width: width * 0.8,
-    maxWidth: width * 0.8,
-    maxHeight: height * 0.6,
+    width: width * 0.6,
+    maxWidth: width * 0.6,
+    maxHeight: height * 0.4,
     resizeMode: 'contain',
   },
   previewOverlay: {
