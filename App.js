@@ -584,6 +584,36 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
+      {/* Uploading File Loading Modal */}
+      <Modal
+        visible={isUploading}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}} // Prevent closing by back button
+      >
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+            <Text style={styles.loadingText}>Uploading file...</Text>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Processing/Scanning Loading Modal */}
+      <Modal
+        visible={isProcessing}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}} // Prevent closing by back button
+      >
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+            <Text style={styles.loadingText}>{processingMessage}</Text>
+          </View>
+        </View>
+      </Modal>
+      
         {/* Header - Only show if not on login screens */}
         {!isLoginScreen && (
           <Header
