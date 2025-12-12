@@ -266,6 +266,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
   },
+  youPaidContainer: {
+    flexDirection: 'column',
+  },
+  beforeTaxNote: {
+    ...Typography.caption,
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
   summaryValue: {
     ...Typography.titleMedium,
     fontSize: 20,
