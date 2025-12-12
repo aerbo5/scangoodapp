@@ -96,9 +96,15 @@ const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, origin
 
               {/* Summary Section */}
               <View style={styles.summarySection}>
+                {receiptAmount !== undefined && receiptAmount > 0 && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>{t('list.amount') || 'Amount'}</Text>
+                    <Text style={styles.summaryValue}>${amount.toFixed(2)}</Text>
+                  </View>
+                )}
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>{t('list.youPaid') || 'You Paid'}</Text>
-                  <Text style={styles.summaryValue}>${currentTotal.toFixed(2)}</Text>
+                  <Text style={styles.summaryValue}>${youPaid.toFixed(2)}</Text>
                 </View>
                 {originalTotalNum > 0 && (
                   <View style={styles.summaryRow}>
