@@ -211,6 +211,8 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+    width: width,
+    height: height,
     justifyContent: 'center',
     alignItems: 'center',
   },
