@@ -1394,8 +1394,8 @@ const parseReceiptText = (text) => {
   console.log(`📦 Parsed ${items.length} items from receipt`);
   console.log(`🚫 Ignored ${Object.values(ignoredElements).flat().length} elements`);
   
-  // Merge duplicate products (same name) - combine quantities and sum prices
-  const mergedItems = [];
+  // Initialize mergedItems and itemMap before processing
+  let mergedItems = [];
   const itemMap = new Map();
   
   for (const item of items) {
