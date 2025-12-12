@@ -110,6 +110,7 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
     let receiptTotal = null;
     let youSaveAmount = null;
     let ignoredElements = null;
+    let itemsAmount = 0; // Sum of product prices only (for "Amount" display)
     let parseResult = null;
 
     console.log('🧾 Receipt scan request received');
@@ -134,7 +135,7 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
           storeName = parseResult.store;
           storeAddress = parseResult.address;
           receiptTotal = parseResult.youPaid; // Receipt grand total (TOTAL, GRAND TOTAL)
-          const itemsAmount = parseResult.amount || 0; // Sum of product prices only (for "Amount" display)
+          itemsAmount = parseResult.amount || 0; // Sum of product prices only (for "Amount" display)
           youSaveAmount = parseResult.youSave; // "You save" amount
           ignoredElements = parseResult.ignoredElements; // SECTION B: Ignored elements
         }
