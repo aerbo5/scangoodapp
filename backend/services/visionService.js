@@ -1134,7 +1134,8 @@ const parseReceiptText = (text) => {
                            /^\d{5}(-\d{4})?$/.test(line) || // Just ZIP code
                            /^\d{3}-\d{3}-\d{4}$/.test(line) || // Just phone number
                            /^(store|manager|cashier|register|terminal|lane|phone|zip|city|state|address|street|avenue|road|boulevard|drive|way|circle|court|landing|river|ste|suite|nw|ne|sw|se)$/i.test(line) ||
-                           /\b(river|landing|ste|suite|dr|drive|nw|ne|sw|se|fl|florida|mi|miami)\b/i.test(line); // Address keywords
+                           /\b(river|landing|ste|suite|dr|drive|nw|ne|sw|se|fl|florida|mi|miami)\b/i.test(line) || // Address keywords
+                           /^(credit|payment|amount|order\s*total|grand\s*total|subtotal|tax|sales\s*tax|total\s*sales|total\s*due|balance\s*due|change)$/i.test(line); // Financial summary terms
     
     if (shouldSkipLine) {
       console.log(`  ⏭️  Skipping excluded line: "${line}"`);
