@@ -331,6 +331,9 @@ export default function App() {
         message: errorMessage,
         response: error.response?.data,
       });
+    } finally {
+      setIsProcessing(false); // Hide loading indicator
+      setProcessingMessage('Processing...'); // Reset message
     }
   };
 
