@@ -72,6 +72,8 @@ export default function App() {
   const [selectedItemForCompare, setSelectedItemForCompare] = useState(null);
   const [originalReceiptStore, setOriginalReceiptStore] = useState(null); // Store name from receipt (e.g., "Target")
   const [isUploading, setIsUploading] = useState(false); // Loading state for gallery upload
+  const [isProcessing, setIsProcessing] = useState(false); // Loading state for receipt/product scanning
+  const [processingMessage, setProcessingMessage] = useState('Processing...'); // Loading message
   const cameraRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -174,10 +176,12 @@ export default function App() {
 
   const processImage = async (imageUri, productType = '') => {
     try {
+      setIsProcessing(true); // Show loading indicator
       let result;
       
       if (scanMode === 'receipt') {
         // Call backend API for receipt scanning
+        setProcessingMessage('Scanning receipt...');
         console.log('🧾 Scanning receipt...');
         result = await scanReceipt(imageUri);
         console.log('📋 Receipt scan result:', result);
@@ -237,6 +241,7 @@ export default function App() {
       } else {
         // Unified scan: Barcode + Product (backend automatically tries barcode first, then Vision API)
         // Call backend API for product scanning with productType
+        setProcessingMessage('Scanning product...');
         result = await scanProduct(imageUri, productType);
         console.log('📱 Frontend - Scan Product Response:', JSON.stringify(result, null, 2));
         if (result.success && result.product) {
