@@ -103,7 +103,10 @@ const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, origin
                   </View>
                 )}
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>{t('list.youPaid') || 'You Paid'}</Text>
+                  <View style={styles.youPaidContainer}>
+                    <Text style={styles.summaryLabel}>{t('list.youPaid') || 'You Paid'}</Text>
+                    <Text style={styles.beforeTaxNote}>(before tax price)</Text>
+                  </View>
                   <Text style={styles.summaryValue}>${youPaid.toFixed(2)}</Text>
                 </View>
                 {originalTotalNum > 0 && (

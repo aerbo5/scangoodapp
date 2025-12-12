@@ -235,16 +235,16 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
     // Update items to filtered items
     items = filteredItems;
     
-    // Use receipt total if available, otherwise calculate from items
-    const calculatedTotal = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
-    const youPaid = receiptTotal || calculatedTotal;
+    // Calculate amount (sum of product prices only) if not already set from parseResult
+    if (itemsAmount === 0) {
+      itemsAmount = items.reduce((sum, item) => sum + ((item.totalLinePrice || item.price || 0) * (item.quantity || 1)), 0);
+    }
+    // You Paid = Amount (before tax price) - same as amount
+    const youPaid = itemsAmount;
     
     console.log(`✅ Receipt parsed successfully: ${items.length} items`);
-    if (receiptTotal) {
-      console.log(`  💵 You paid: $${receiptTotal.toFixed(2)} (from receipt)`);
-    } else {
-      console.log(`  💵 You paid: $${calculatedTotal.toFixed(2)} (calculated from items)`);
-    }
+    console.log(`  💰 Amount (products total): $${itemsAmount.toFixed(2)}`);
+    console.log(`  💵 You paid (before tax): $${youPaid.toFixed(2)}`);
     if (youSaveAmount) {
       console.log(`  💰 You save: $${youSaveAmount.toFixed(2)}`);
     }
