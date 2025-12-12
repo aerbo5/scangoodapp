@@ -1448,7 +1448,8 @@ const parseReceiptText = (text) => {
     time: receiptTime,
     store: storeName,
     address: storeAddress,
-    youPaid: itemsTotal, // Sum of product prices only (ignore grand total, tax, etc.)
+    amount: itemsTotal, // Sum of product prices only (for "Amount" display)
+    youPaid: receiptTotal || itemsTotal, // Receipt grand total (TOTAL, GRAND TOTAL) or fallback to items total
     youSave: youSaveAmount, // Total "you save" amount from receipt
     receiptSummary: receiptSummary, // All financial information in one place
   };

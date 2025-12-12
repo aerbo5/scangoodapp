@@ -186,7 +186,8 @@ export default function App() {
           try {
             const historyEntry = {
               items: result.items,
-              total: result.youPaid || result.total,
+              total: result.youPaid || result.total, // Grand total (what you actually paid)
+              amount: result.amount || 0, // Sum of product prices only
               store: result.store,
               address: result.address,
               date: result.date,
@@ -200,10 +201,16 @@ export default function App() {
             // Don't block navigation if history save fails
           }
           
+          // Store amount and youPaid separately
+          const receiptAmount = result.amount || 0; // Sum of product prices
+          const receiptYouPaid = result.youPaid || 0; // Grand total from receipt
+          
           // Navigate to list screen AFTER state is set
           console.log('🔄 Navigating to list screen...');
+          console.log(`  💰 Amount (products): $${receiptAmount.toFixed(2)}`);
+          console.log(`  💵 You Paid (grand total): $${receiptYouPaid.toFixed(2)}`);
           setTimeout(() => {
-            showScreen('list');
+            showScreen('list', null, { amount: receiptAmount, youPaid: receiptYouPaid });
             console.log('✅ Navigation completed');
           }, 100); // Small delay to ensure state is set
         } else {
@@ -529,6 +536,8 @@ export default function App() {
             calculateTotal={handleCalculateTotal}
             originalTotal={priceComparisonData?.originalTotal}
             youSave={handleGetSavings()}
+            receiptAmount={priceComparisonData?.receiptAmount}
+            receiptYouPaid={priceComparisonData?.receiptYouPaid}
           />
         );
       case 'similarProducts':

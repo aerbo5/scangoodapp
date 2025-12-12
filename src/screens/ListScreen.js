@@ -4,7 +4,7 @@ import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { Icons } from '../constants/icons';
 import { useLanguage } from '../context/LanguageContext';
 
-const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, originalTotal, youSave }) => {
+const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, originalTotal, youSave, receiptAmount, receiptYouPaid }) => {
   const { t } = useLanguage();
 
   const handleOpenLink = async (item) => {
@@ -25,11 +25,15 @@ const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, origin
     }
   };
 
+  // Amount = Sum of product prices only
+  const amount = parseFloat(receiptAmount || calculateTotal(scannedItems) || 0);
+  // You Paid = Receipt grand total (what you actually paid, tax included)
+  const youPaid = parseFloat(receiptYouPaid || calculateTotal(scannedItems) || 0);
+  
   // Ensure all values are numbers before using toFixed
-  const currentTotal = parseFloat(calculateTotal(scannedItems) || 0);
   const originalTotalNum = parseFloat(originalTotal || 0);
   const youSaveNum = parseFloat(youSave || 0);
-  const savings = youSaveNum || (originalTotalNum > 0 ? (originalTotalNum - currentTotal) : 0);
+  const savings = youSaveNum || (originalTotalNum > 0 ? (originalTotalNum - amount) : 0);
 
   return (
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>

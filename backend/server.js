@@ -133,7 +133,8 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
           receiptTime = parseResult.time;
           storeName = parseResult.store;
           storeAddress = parseResult.address;
-          receiptTotal = parseResult.youPaid; // Use receipt total as "you paid"
+          receiptTotal = parseResult.youPaid; // Receipt grand total (TOTAL, GRAND TOTAL)
+          const itemsAmount = parseResult.amount || 0; // Sum of product prices only (for "Amount" display)
           youSaveAmount = parseResult.youSave; // "You save" amount
           ignoredElements = parseResult.ignoredElements; // SECTION B: Ignored elements
         }
@@ -272,7 +273,8 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
         nonItem: [],
         unclear: [],
       },
-      youPaid: parseFloat(youPaid.toFixed(2)), // Total, Total Due, Sub Total -> You Paid
+      amount: parseFloat(itemsAmount.toFixed(2)), // Sum of product prices only (for "Amount" display)
+      youPaid: parseFloat(youPaid.toFixed(2)), // Receipt grand total (TOTAL, GRAND TOTAL) - what you actually paid
       youSave: youSaveAmount ? parseFloat(youSaveAmount.toFixed(2)) : null,
       store: storeName || 'Unknown Store',
       address: storeAddress || null,
