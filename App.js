@@ -6,6 +6,10 @@ import {
   Animated,
   Alert,
   Platform,
+  ActivityIndicator,
+  View,
+  Text,
+  Modal,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -67,6 +71,7 @@ export default function App() {
   const [receiptHistory, setReceiptHistory] = useState([]);
   const [selectedItemForCompare, setSelectedItemForCompare] = useState(null);
   const [originalReceiptStore, setOriginalReceiptStore] = useState(null); // Store name from receipt (e.g., "Target")
+  const [isUploading, setIsUploading] = useState(false); // Loading state for gallery upload
   const cameraRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -155,7 +160,15 @@ export default function App() {
     });
 
     if (!result.canceled) {
-      processImage(result.assets[0].uri);
+      setIsUploading(true); // Show loading indicator
+      try {
+        await processImage(result.assets[0].uri);
+      } catch (error) {
+        console.error('Error processing image from gallery:', error);
+        Alert.alert('Error', 'Failed to process image. Please try again.');
+      } finally {
+        setIsUploading(false); // Hide loading indicator
+      }
     }
   };
 
