@@ -1394,6 +1394,40 @@ const parseReceiptText = (text) => {
   console.log(`📦 Parsed ${items.length} items from receipt`);
   console.log(`🚫 Ignored ${Object.values(ignoredElements).flat().length} elements`);
   
+  // Merge duplicate products (same name) - combine quantities and sum prices
+  const mergedItems = [];
+  const itemMap = new Map();
+  
+  for (const item of items) {
+    const key = item.name.toLowerCase().trim();
+    if (itemMap.has(key)) {
+      // Merge with existing item
+      const existing = itemMap.get(key);
+      existing.quantity = (existing.quantity || 1) + (item.quantity || 1);
+      existing.totalLinePrice = (existing.totalLinePrice || existing.price || 0) + (item.totalLinePrice || item.price || 0);
+      console.log(`  🔀 Merged duplicate: "${item.name}" - Total qty: ${existing.quantity}, Total price: $${existing.totalLinePrice.toFixed(2)}`);
+    } else {
+      // New item
+      const mergedItem = {
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity || 1,
+        weightQuantity: item.weightQuantity,
+        totalLinePrice: item.totalLinePrice || item.price || 0,
+      };
+      itemMap.set(key, mergedItem);
+      mergedItems.push(mergedItem);
+    }
+  }
+  
+  // Calculate total from items only (sum of all product prices, ignore grand total, tax, etc.)
+  const itemsTotal = mergedItems.reduce((sum, item) => {
+    return sum + (item.totalLinePrice || item.price || 0);
+  }, 0);
+  
+  console.log(`📊 Merged to ${mergedItems.length} unique items`);
+  console.log(`💰 Items total (sum of products only): $${itemsTotal.toFixed(2)}`);
+  
   // Combine all financial information into a single summary object
   const receiptSummary = {
     subtotal: subtotal || null,
@@ -1417,7 +1451,7 @@ const parseReceiptText = (text) => {
     receiptSummary: receiptSummary, // All financial information in one place
   };
   
-  return items.length > 0 ? result : null;
+  return mergedItems.length > 0 ? result : null;
 };
 
 module.exports = {
