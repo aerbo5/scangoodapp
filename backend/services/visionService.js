@@ -1133,7 +1133,8 @@ const parseReceiptText = (text) => {
                            /zip\s*code/i.test(line) ||
                            /^\d{5}(-\d{4})?$/.test(line) || // Just ZIP code
                            /^\d{3}-\d{3}-\d{4}$/.test(line) || // Just phone number
-                           /^(store|manager|cashier|register|terminal|lane|phone|zip|city|state|address|street|avenue|road|boulevard|drive|way|circle|court)$/i.test(line);
+                           /^(store|manager|cashier|register|terminal|lane|phone|zip|city|state|address|street|avenue|road|boulevard|drive|way|circle|court|landing|river|ste|suite|nw|ne|sw|se)$/i.test(line) ||
+                           /\b(river|landing|ste|suite|dr|drive|nw|ne|sw|se|fl|florida|mi|miami)\b/i.test(line); // Address keywords
     
     if (shouldSkipLine) {
       console.log(`  ⏭️  Skipping excluded line: "${line}"`);
@@ -1405,13 +1406,13 @@ const parseReceiptText = (text) => {
   
   // Return object with items, ignored elements, and metadata
   const result = {
-    items: items.length > 0 ? items : null,
+    items: mergedItems.length > 0 ? mergedItems : null, // Use merged items
     ignoredElements: ignoredElements, // SECTION B: All ignored elements
     date: receiptDate,
     time: receiptTime,
     store: storeName,
     address: storeAddress,
-    youPaid: receiptTotal, // Use receipt total (TOTAL, TOTAL DUE, SUB TOTAL) as "you paid"
+    youPaid: itemsTotal, // Sum of product prices only (ignore grand total, tax, etc.)
     youSave: youSaveAmount, // Total "you save" amount from receipt
     receiptSummary: receiptSummary, // All financial information in one place
   };
