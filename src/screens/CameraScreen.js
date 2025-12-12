@@ -210,13 +210,24 @@ const CameraScreen = ({
 const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
+    width: width,
+    height: height,
     backgroundColor: Colors.black,
     zIndex: 1,
+    overflow: 'hidden',
+    position: 'relative',
   },
   camera: {
     flex: 1,
     width: width,
     height: height,
+  },
+  cameraOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
