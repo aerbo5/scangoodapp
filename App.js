@@ -156,7 +156,7 @@ export default function App() {
 
   const pickImageFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images, // Updated from deprecated MediaTypeOptions
+      mediaTypes: ['images'], // Use array format for expo-image-picker 17.x
       allowsEditing: false, // Resmi kırpmayı kapat - orijinal boyutta kalsın
       quality: 1.0, // Maksimum kalite
     });

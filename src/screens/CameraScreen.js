@@ -159,14 +159,18 @@ const CameraScreen = ({
         </View>
       ) : (
         // Kamera görünümü
-        <CameraView style={styles.camera} ref={cameraRef}>
-          {renderScanFrame()}
-          {isScanning ? (
-            <Text style={styles.scanInstructions}>{t('camera.scanning')}</Text>
-          ) : (
-            <Text style={styles.scanInstructions}>{scanInstructions[scanMode]}</Text>
-          )}
-        </CameraView>
+        <View style={styles.cameraContainer}>
+          <CameraView style={styles.camera} ref={cameraRef} />
+          {/* Overlay content with absolute positioning */}
+          <View style={styles.cameraOverlay}>
+            {renderScanFrame()}
+            {isScanning ? (
+              <Text style={styles.scanInstructions}>{t('camera.scanning')}</Text>
+            ) : (
+              <Text style={styles.scanInstructions}>{scanInstructions[scanMode]}</Text>
+            )}
+          </View>
+        </View>
       )}
 
       <View style={styles.cameraActions}>
