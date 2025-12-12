@@ -1220,6 +1220,7 @@ const parseReceiptText = (text) => {
       const isExcludedField = skipPatterns.some(pattern => pattern.test(name)) ||
                                /^(lb|lbs|kg|g|oz|tare|net\s*sales|sales\s*tax|markdown|saved|you\s*saved)$/i.test(name) ||
                                /^(store|manager|cashier|register|terminal|lane|phone|zip|city|state|address|street|avenue|road|boulevard|drive|lane|way|circle|court)$/i.test(name) ||
+                               /^(credit|payment|amount|order\s*total|grand\s*total|subtotal|tax|sales\s*tax|total\s*sales|total\s*due|balance\s*due|change)$/i.test(name) ||
                                /^\d{5}(-\d{4})?$/.test(name) || // ZIP codes
                                /^\d{3}-\d{3}-\d{4}$/.test(name) || // Phone numbers
                                /^\d{10,}$/.test(name); // Long numbers (could be phone, card, etc.)
