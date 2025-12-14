@@ -7,8 +7,14 @@
 export const calculateTotal = (items, priceKey = 'price') => {
   if (!items || items.length === 0) return '0.00';
   return items.reduce((sum, item) => {
+    // Use totalLinePrice if available (already includes quantity)
+    // Otherwise use price * quantity
+    if (item.totalLinePrice && priceKey === 'price') {
+      return sum + parseFloat(item.totalLinePrice);
+    }
     const price = parseFloat(item[priceKey]) || 0;
-    return sum + price;
+    const quantity = parseInt(item.quantity) || 1;
+    return sum + (price * quantity);
   }, 0).toFixed(2);
 };
 
