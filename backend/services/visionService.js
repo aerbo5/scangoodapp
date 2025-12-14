@@ -18,14 +18,14 @@ const initializeVision = () => {
   // IMPORTANT: OCR requires Google Cloud Vision or Azure Computer Vision
   // Gemini Vision does NOT support OCR, only product recognition
   
-  // Try Azure Computer Vision first (free tier, no billing required, good for OCR)
-  if (process.env.AZURE_COMPUTER_VISION_KEY && process.env.AZURE_COMPUTER_VISION_ENDPOINT) {
-    azureKey = process.env.AZURE_COMPUTER_VISION_KEY;
-    azureEndpoint = process.env.AZURE_COMPUTER_VISION_ENDPOINT;
-    useAzureVision = true;
-    console.log('✅ Azure Computer Vision initialized (5,000 free requests/month)');
-    // Continue to check for other APIs (can use multiple)
-  }
+  // Azure Computer Vision DISABLED - using Gemini instead
+  // if (process.env.AZURE_COMPUTER_VISION_KEY && process.env.AZURE_COMPUTER_VISION_ENDPOINT) {
+  //   azureKey = process.env.AZURE_COMPUTER_VISION_KEY;
+  //   azureEndpoint = process.env.AZURE_COMPUTER_VISION_ENDPOINT;
+  //   useAzureVision = true;
+  //   console.log('✅ Azure Computer Vision initialized (5,000 free requests/month)');
+  // }
+  console.log('ℹ️  Azure Computer Vision disabled - using Gemini AI instead');
 
   // Try to initialize Google Cloud Vision with service account key file
   if (process.env.GOOGLE_CLOUD_VISION_KEY_FILE) {
@@ -83,9 +83,9 @@ const extractTextFromImage = async (imageBuffer) => {
     useGeminiVision,
   });
   
-  // Try Azure Computer Vision first (free tier, good for OCR)
-  // If Azure is configured, ONLY use Azure (don't fallback to Google Vision)
-  if (useAzureVision && azureKey && azureEndpoint) {
+  // Azure Computer Vision DISABLED - using Gemini instead
+  // Skip Azure OCR completely
+  if (false && useAzureVision && azureKey && azureEndpoint) {
     try {
       console.log('📸 Using Azure Computer Vision for OCR...');
       // Increase timeout for large images (long receipts)
@@ -310,8 +310,9 @@ const extractTextFromImage = async (imageBuffer) => {
 
 // Barcode detection
 const detectBarcode = async (imageBuffer) => {
-  // Try Azure Computer Vision first (if configured, use only Azure)
-  if (useAzureVision && azureKey && azureEndpoint) {
+  // Azure Computer Vision DISABLED - using Google Vision instead
+  // Skip Azure barcode detection
+  if (false && useAzureVision && azureKey && azureEndpoint) {
     try {
       console.log('🔍 Using Azure Computer Vision for barcode detection...');
       const response = await axios.post(
@@ -1047,8 +1048,9 @@ const detectProductLabels = async (imageBuffer) => {
   // Note: AI-powered recognition is handled separately in server.js
   // This function only handles traditional Vision API label detection
 
-  // Try Azure Computer Vision (free tier, no billing required)
-  if (useAzureVision && azureKey && azureEndpoint) {
+  // Azure Computer Vision DISABLED - using Google Vision instead
+  // Skip Azure label detection
+  if (false && useAzureVision && azureKey && azureEndpoint) {
     try {
       console.log('🔍 Calling Azure Computer Vision API for label detection...');
       const response = await axios.post(
