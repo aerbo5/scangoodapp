@@ -716,18 +716,44 @@ const scanProductWithGemini = async (imageBuffer) => {
 
 Ardından, bu ürünün Amerika Birleşik Devletleri'ndeki popüler perakendecilerdeki (Walmart, Target, Amazon, Kroger, Publix, Walgreens, CVS, Costco) ortalama/güncel raf fiyatlarını listele. Fiyatları kıyasla ve en ucuz seçeneği belirle.
 
-KURALLAR:
-1. Ürün adını TAMAMEN ve DOĞRU yaz (marka + çeşit + ağırlık)
-2. Fiyatlar USD cinsinden olmalı
-3. Gerçekçi fiyatlar ver (ABD market fiyatları)
-4. En az 4-6 mağaza listele
-5. Stok durumu tahmini ekle
+KRİTİK KURALLAR:
+1. "product_name" SADECE marka + ürün adı + ağırlık içermeli (ÇEŞİT YOK!)
+   - DOĞRU: "Jif Peanut Butter 16 oz"
+   - YANLIŞ: "Jif Creamy Peanut Butter 16 oz" (Creamy çeşit, product_name'de olmamalı)
+   - Çeşit bilgisi SADECE "variant" field'ında olmalı
+
+2. "brand" SADECE marka adı (örn: "Jif", "Skippy", "Peter Pan")
+   - Marka adını tam olarak yaz (ambalajda ne yazıyorsa)
+
+3. "variant" çeşit bilgisi (Creamy, Crunchy, Original, Natural vb.)
+   - Eğer çeşit yoksa null veya boş string
+
+4. Fiyatlar USD cinsinden olmalı
+5. Gerçekçi fiyatlar ver (ABD market fiyatları)
+6. En az 4-6 mağaza listele
+7. Stok durumu tahmini ekle
+
+ÖRNEK - Jif Creamy Peanut Butter 16 oz:
+{
+  "product_name": "Jif Peanut Butter 16 oz",
+  "brand": "Jif",
+  "variant": "Creamy",
+  "size": "16 oz"
+}
+
+ÖRNEK - Skippy Natural Peanut Butter 18 oz:
+{
+  "product_name": "Skippy Peanut Butter 18 oz",
+  "brand": "Skippy",
+  "variant": "Natural",
+  "size": "18 oz"
+}
 
 Çıktıyı SADECE geçerli bir JSON formatında ver:
 {
-  "product_name": "Ürünün Tam Adı ve Gramajı (örn: Jif Creamy Peanut Butter 16 oz)",
-  "brand": "Marka Adı",
-  "variant": "Çeşit (Creamy, Crunchy, Original vb.)",
+  "product_name": "Marka + Ürün Adı + Ağırlık (ÇEŞİT YOK!)",
+  "brand": "Sadece Marka Adı",
+  "variant": "Çeşit (Creamy, Crunchy, Original vb. veya null)",
   "size": "Ağırlık/Hacim (örn: 16 oz, 500ml)",
   "currency": "USD",
   "prices_by_store": [
