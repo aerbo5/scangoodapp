@@ -154,24 +154,25 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
           console.log('⚠️ Both OpenAI and Gemini failed, falling back to OCR...');
           console.log('📸 Extracting text from receipt image with OCR...');
           receiptText = await visionService.extractTextFromImage(req.file.buffer);
-        
-        if (receiptText) {
-          console.log('✅ OCR text extracted, length:', receiptText.length);
-          parseResult = visionService.parseReceiptText(receiptText);
-          if (parseResult) {
-            items = parseResult.items;
-            receiptDate = parseResult.date;
-            receiptTime = parseResult.time;
-            storeName = parseResult.store;
-            storeAddress = parseResult.address;
-            receiptTotal = parseResult.youPaid; // Receipt grand total (TOTAL, GRAND TOTAL)
-            itemsAmount = parseResult.amount || 0; // Sum of product prices only (for "Amount" display)
-            youSaveAmount = parseResult.youSave; // "You save" amount
-            ignoredElements = parseResult.ignoredElements; // SECTION B: Ignored elements
-            scanSource = 'ocr';
+          
+          if (receiptText) {
+            console.log('✅ OCR text extracted, length:', receiptText.length);
+            parseResult = visionService.parseReceiptText(receiptText);
+            if (parseResult) {
+              items = parseResult.items;
+              receiptDate = parseResult.date;
+              receiptTime = parseResult.time;
+              storeName = parseResult.store;
+              storeAddress = parseResult.address;
+              receiptTotal = parseResult.youPaid; // Receipt grand total (TOTAL, GRAND TOTAL)
+              itemsAmount = parseResult.amount || 0; // Sum of product prices only (for "Amount" display)
+              youSaveAmount = parseResult.youSave; // "You save" amount
+              ignoredElements = parseResult.ignoredElements; // SECTION B: Ignored elements
+              scanSource = 'ocr';
+            }
+          } else {
+            console.log('⚠️ No text extracted from receipt via OCR');
           }
-        } else {
-          console.log('⚠️ No text extracted from receipt via OCR');
         }
       }
     } else {
