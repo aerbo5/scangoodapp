@@ -463,6 +463,179 @@ const detectBarcode = async (imageBuffer) => {
   return null;
 };
 
+// AI-powered receipt scanning using Google Gemini Vision API with JSON mode
+const scanReceiptWithGemini = async (imageBuffer) => {
+  if (!useGeminiVision || !geminiApiKey) {
+    console.log('⚠️ Gemini Vision not configured for receipt scanning');
+    return null;
+  }
+
+  try {
+    console.log('🤖 Scanning receipt with Gemini Vision (JSON mode)...');
+    const base64Image = imageBuffer.toString('base64');
+    
+    // Strong prompt for receipt parsing (based on user's Python code)
+    const prompt = `Bu bir market fişidir. Lütfen sadece satın alınan gerçek ürünleri (line items) ve bunların birim fiyatlarını (price) çıkar.
+
+Aşağıdaki kurallara KESİNLİKLE uy:
+
+1. GÜRÜLTÜYÜ GÖRMEZDEN GEL: Market adı (Publix, Walmart, Target, MILAMS vb.), adres, telefon, "Tax", "Balance", "Total", "Net Sales", "Debit", "Mastercard", "Visa", "Credit", "Payment", "Amount", "Grand Total", "Order Total", "Sales Tax", "Change" gibi ödeme bilgilerini ürün olarak ekleme.
+
+2. DARA/AĞIRLIK SATIRLARINI ATLA: "[Tare:", "lb @", "oz @" veya ağırlık hesaplaması içeren satırları ürün adı olarak alma. Sadece ana ürün adını al.
+
+3. FİYAT DOĞRULUĞU: Bir ürünün fiyatı satırın en sağındadır. Eğer bir satırda fiyat yoksa, altındaki veya üstündeki satırla birleştirmeyi dene ya da o satırı atla. Asla "Total", "Grand Total", "Amount" tutarını ürün fiyatı olarak yazma.
+
+4. İNDİRİMLERİ ATLA: "Markdown", "Savings", "You Save", "Discount" satırlarını ürün olarak ekleme.
+
+5. ÖDEME BİLGİLERİNİ ATLA: "Receipt ID", "Trace #", "Reference #", "Auth #", "Acct #", "PRESTO", "Entry Method" gibi satırları ürün olarak ekleme.
+
+6. MAĞAZA BİLGİLERİNİ ATLA: Mağaza adı, adres, telefon numarası, mağaza yöneticisi, kasiyer bilgisi, "Store Manager", "Cashier" gibi satırları ürün olarak ekleme.
+
+Çıktıyı şu JSON formatında ver:
+{
+  "items": [
+    {"name": "Ürün Adı", "price": 0.00, "quantity": 1}
+  ],
+  "store": "Mağaza Adı (varsa)",
+  "date": "Tarih (varsa, format: MM/DD/YYYY)",
+  "itemsTotal": 0.00
+}
+
+SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi veya toplam bilgisi ürün olarak ekleme.`;
+
+    const requestData = {
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: 'image/jpeg',
+                data: base64Image,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        response_mime_type: 'application/json', // JSON mode - forces structured output
+        temperature: 0.1, // Low temperature for more accurate extraction
+      },
+    };
+
+    const requestConfig = {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000, // 30 seconds for receipt processing
+    };
+
+    // Try gemini-1.5-flash first (stable and good for receipts), then fallback to others
+    const modelsToTry = [
+      { name: 'gemini-1.5-flash', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-1.5-pro', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-2.0-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}` },
+    ];
+
+    let response = null;
+    for (const model of modelsToTry) {
+      try {
+        console.log(`  🔄 Trying ${model.name} for receipt scanning...`);
+        response = await axios.post(model.url, requestData, requestConfig);
+        console.log(`  ✅ Successfully using ${model.name}`);
+        break;
+      } catch (error) {
+        if (error.response?.status === 404 || error.response?.status === 400) {
+          console.log(`  ❌ ${model.name} not available, trying next...`);
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (!response) {
+      console.log('⚠️ All Gemini models failed for receipt scanning');
+      return null;
+    }
+
+    const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      console.log('⚠️ Gemini returned empty response');
+      return null;
+    }
+
+    console.log('📄 Gemini receipt response:', text.substring(0, 500));
+
+    // Parse JSON response
+    try {
+      const result = JSON.parse(text);
+      
+      if (result.items && Array.isArray(result.items)) {
+        // Calculate items total if not provided
+        if (!result.itemsTotal) {
+          result.itemsTotal = result.items.reduce((sum, item) => {
+            const price = parseFloat(item.price) || 0;
+            const qty = parseInt(item.quantity) || 1;
+            return sum + (price * qty);
+          }, 0);
+        }
+        
+        // Format items to match our expected structure
+        const formattedItems = result.items.map(item => ({
+          name: item.name || item.item_name || 'Unknown Item',
+          price: parseFloat(item.price) || 0,
+          quantity: parseInt(item.quantity) || 1,
+          totalLinePrice: (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1),
+        }));
+
+        console.log(`✅ Gemini extracted ${formattedItems.length} items, total: $${result.itemsTotal.toFixed(2)}`);
+        
+        return {
+          items: formattedItems,
+          store: result.store || null,
+          date: result.date || null,
+          amount: parseFloat(result.itemsTotal) || 0,
+          youPaid: parseFloat(result.itemsTotal) || 0,
+          source: 'gemini',
+        };
+      }
+    } catch (parseError) {
+      console.error('❌ Failed to parse Gemini JSON response:', parseError.message);
+      // Try to extract JSON from response if it contains markdown
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const result = JSON.parse(jsonMatch[0]);
+          if (result.items) {
+            return {
+              items: result.items.map(item => ({
+                name: item.name || item.item_name || 'Unknown',
+                price: parseFloat(item.price) || 0,
+                quantity: parseInt(item.quantity) || 1,
+                totalLinePrice: (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1),
+              })),
+              store: result.store || null,
+              date: result.date || null,
+              amount: result.itemsTotal || 0,
+              youPaid: result.itemsTotal || 0,
+              source: 'gemini',
+            };
+          }
+        } catch (e) {
+          console.error('❌ Secondary JSON parse also failed');
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error in Gemini receipt scanning:', {
+      status: error.response?.status,
+      message: error.message,
+      data: error.response?.data,
+    });
+    return null;
+  }
+};
+
 // AI-powered product recognition using Google Gemini Vision API
 const detectProductWithAI = async (imageBuffer) => {
   if (useGeminiVision && geminiApiKey) {
@@ -1465,5 +1638,6 @@ module.exports = {
   detectProductLabels,
   detectProductWithAI,
   parseReceiptText,
+  scanReceiptWithGemini,
 };
 

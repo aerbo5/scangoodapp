@@ -98,7 +98,7 @@ app.get('/api/debug/env', (req, res) => {
   });
 });
 
-// Scan Receipt - OCR processing
+// Scan Receipt - OCR processing with Gemini AI fallback
 app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
   try {
     let items = null;
@@ -112,35 +112,54 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
     let ignoredElements = null;
     let itemsAmount = 0; // Sum of product prices only (for "Amount" display)
     let parseResult = null;
+    let scanSource = 'ocr'; // Track which method was used
 
     console.log('🧾 Receipt scan request received');
     
-    // Try OCR if image is provided
+    // Try scanning if image is provided
     if (req.file && req.file.buffer) {
-      console.log('📸 Extracting text from receipt image...');
       console.log('📊 Image file info:', {
         size: req.file.buffer.length,
         mimetype: req.file.mimetype,
         originalname: req.file.originalname,
       });
-      receiptText = await visionService.extractTextFromImage(req.file.buffer);
       
-      if (receiptText) {
-        console.log('✅ OCR text extracted, length:', receiptText.length);
-        parseResult = visionService.parseReceiptText(receiptText);
-        if (parseResult) {
-          items = parseResult.items;
-          receiptDate = parseResult.date;
-          receiptTime = parseResult.time;
-          storeName = parseResult.store;
-          storeAddress = parseResult.address;
-          receiptTotal = parseResult.youPaid; // Receipt grand total (TOTAL, GRAND TOTAL)
-          itemsAmount = parseResult.amount || 0; // Sum of product prices only (for "Amount" display)
-          youSaveAmount = parseResult.youSave; // "You save" amount
-          ignoredElements = parseResult.ignoredElements; // SECTION B: Ignored elements
-        }
+      // METHOD 1: Try Gemini AI with JSON mode first (more accurate for receipts)
+      console.log('🤖 Trying Gemini AI for receipt scanning...');
+      const geminiResult = await visionService.scanReceiptWithGemini(req.file.buffer);
+      
+      if (geminiResult && geminiResult.items && geminiResult.items.length > 0) {
+        console.log('✅ Gemini AI successfully extracted items');
+        items = geminiResult.items;
+        storeName = geminiResult.store;
+        receiptDate = geminiResult.date;
+        itemsAmount = geminiResult.amount || 0;
+        scanSource = 'gemini';
+        ignoredElements = { paymentInfo: [], storeInfo: [], metadata: [], footerCoupons: [], nonItem: [], unclear: [] };
       } else {
-        console.log('⚠️ No text extracted from receipt');
+        // METHOD 2: Fallback to OCR + parseReceiptText
+        console.log('⚠️ Gemini failed or returned no items, falling back to OCR...');
+        console.log('📸 Extracting text from receipt image with OCR...');
+        receiptText = await visionService.extractTextFromImage(req.file.buffer);
+        
+        if (receiptText) {
+          console.log('✅ OCR text extracted, length:', receiptText.length);
+          parseResult = visionService.parseReceiptText(receiptText);
+          if (parseResult) {
+            items = parseResult.items;
+            receiptDate = parseResult.date;
+            receiptTime = parseResult.time;
+            storeName = parseResult.store;
+            storeAddress = parseResult.address;
+            receiptTotal = parseResult.youPaid; // Receipt grand total (TOTAL, GRAND TOTAL)
+            itemsAmount = parseResult.amount || 0; // Sum of product prices only (for "Amount" display)
+            youSaveAmount = parseResult.youSave; // "You save" amount
+            ignoredElements = parseResult.ignoredElements; // SECTION B: Ignored elements
+            scanSource = 'ocr';
+          }
+        } else {
+          console.log('⚠️ No text extracted from receipt via OCR');
+        }
       }
     } else {
       console.log('⚠️ No image file provided');
@@ -282,6 +301,7 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
       date: receiptDate || null,
       time: receiptTime || null,
       ocrUsed: !!receiptText,
+      scanSource: scanSource, // 'gemini' or 'ocr' - which method was used
       itemCount: items.length,
       receiptSummary: receiptSummary, // All financial information (subtotal, tax, total sales, total due, total, you save) in one place
     });
