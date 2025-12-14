@@ -479,17 +479,43 @@ const scanReceiptWithGemini = async (imageBuffer) => {
 
 Aşağıdaki kurallara KESİNLİKLE uy:
 
-1. GÜRÜLTÜYÜ GÖRMEZDEN GEL: Market adı (Publix, Walmart, Target, MILAMS vb.), adres, telefon, "Tax", "Balance", "Total", "Net Sales", "Debit", "Mastercard", "Visa", "Credit", "Payment", "Amount", "Grand Total", "Order Total", "Sales Tax", "Change" gibi ödeme bilgilerini ürün olarak ekleme.
+1. GÜRÜLTÜYÜ GÖRMEZDEN GEL - ASLA ÜRÜN OLARAK EKLEME:
+   - Market adı: "MILAMS", "Publix", "Walmart", "Target", "Kroger" vb.
+   - Adres, telefon, web sitesi
+   - "Tax", "Balance", "Total", "Net Sales", "TOTAL SALES", "SAVINGS GRAND TOTAL"
+   - "Debit", "Mastercard", "Visa", "Credit", "Payment", "Amount", "Grand Total", "Order Total", "Sales Tax", "Change"
+   - "Inv#:", "Tra#:", "Reference #", "Auth #", "Acct #", "Receipt ID", "Trace #"
+   - "PRESTO", "Entry Method", "AID", "NETWORK", "TENDER", "APPROVAL"
+   - Mağaza sloganı: "FAMILY GROCER SINCE 1984", "THANK YOU FOR SHOPPING" vb.
 
-2. DARA/AĞIRLIK SATIRLARINI ATLA: "[Tare:", "lb @", "oz @" veya ağırlık hesaplaması içeren satırları ürün adı olarak alma. Sadece ana ürün adını al.
+2. DARA/AĞIRLIK SATIRLARINI ATLA - ASLA ÜRÜN OLARAK EKLEME:
+   - "[Tare:", "[lare:", "Ifare:" (yazım hataları dahil)
+   - "lb @", "oz @", "kg @", ağırlık hesaplaması içeren satırlar
+   - "0.03 lb", "2.22 lb", "$3.99/lb" gibi ağırlık bilgileri
+   - Sadece ana ürün adını al, ağırlık bilgisini atla
 
-3. FİYAT DOĞRULUĞU: Bir ürünün fiyatı satırın en sağındadır. Eğer bir satırda fiyat yoksa, altındaki veya üstündeki satırla birleştirmeyi dene ya da o satırı atla. Asla "Total", "Grand Total", "Amount" tutarını ürün fiyatı olarak yazma.
+3. FİYAT DOĞRULUĞU - ÇOK ÖNEMLİ:
+   - Bir ürünün fiyatı satırın en sağındadır
+   - Eğer bir satırda fiyat yoksa, o satırı ATLA
+   - ASLA "Total", "Grand Total", "Amount" tutarını (örn: 59.01, 358.7) ürün fiyatı olarak yazma
+   - Eğer fiyat çok yüksekse (örn: $59.01 bir meyve için), bu muhtemelen toplam tutardır - ATLA
 
-4. İNDİRİMLERİ ATLA: "Markdown", "Savings", "You Save", "Discount" satırlarını ürün olarak ekleme.
+4. İNDİRİMLERİ ATLA:
+   - "Markdown", "Savings", "You Save", "Discount" satırlarını ürün olarak ekleme
 
-5. ÖDEME BİLGİLERİNİ ATLA: "Receipt ID", "Trace #", "Reference #", "Auth #", "Acct #", "PRESTO", "Entry Method" gibi satırları ürün olarak ekleme.
+5. KODLAR VE NUMARALAR - ASLA ÜRÜN OLARAK EKLEME:
+   - ":1030", ":03", sadece numaralar
+   - "Inv#:00547101 Tra#:698320" gibi invoice/trace numaraları
+   - Sadece harflerden oluşan kısa kodlar (örn: "IMPROVE" tek başına ürün değil)
 
-6. MAĞAZA BİLGİLERİNİ ATLA: Mağaza adı, adres, telefon numarası, mağaza yöneticisi, kasiyer bilgisi, "Store Manager", "Cashier" gibi satırları ürün olarak ekleme.
+6. GERÇEK ÜRÜN ÖRNEKLERİ (BUNLARI EKLE):
+   - "BLACKBERRIES" - meyve
+   - "GRAPE WHT ORGN" - meyve
+   - "ALMOND BREEZE HULK" - içecek
+   - "GRAZE OLIVE OIL SIZZLE" - yağ
+   - "ORGANIC SALAD BABY KALE" - sebze
+   - "BANANA" - meyve
+   - "BLUEBERRIES 6 02" - meyve (ama fiyatı doğru olmalı, toplam değil)
 
 Çıktıyı şu JSON formatında ver:
 {
@@ -501,7 +527,7 @@ Aşağıdaki kurallara KESİNLİKLE uy:
   "itemsTotal": 0.00
 }
 
-SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi veya toplam bilgisi ürün olarak ekleme.`;
+KRİTİK: SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi, toplam, mağaza bilgisi, dara, kod veya numara ürün olarak ekleme.`;
 
     const requestData = {
       contents: [
@@ -528,33 +554,54 @@ SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi veya toplam bilgisi ür
       timeout: 30000, // 30 seconds for receipt processing
     };
 
-    // Try gemini-1.5-flash first (stable and good for receipts), then fallback to others
+    // Try multiple Gemini models (v1 API works better with most API keys)
     const modelsToTry = [
-      { name: 'gemini-1.5-flash', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}` },
-      { name: 'gemini-1.5-pro', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}` },
       { name: 'gemini-2.0-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-1.5-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-1.5-flash-latest', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-2.5-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}` },
     ];
 
     let response = null;
+    let usedModel = null;
+    
+    // First try with JSON mode
     for (const model of modelsToTry) {
       try {
-        console.log(`  🔄 Trying ${model.name} for receipt scanning...`);
+        console.log(`  🔄 Trying ${model.name} for receipt scanning (JSON mode)...`);
         response = await axios.post(model.url, requestData, requestConfig);
-        console.log(`  ✅ Successfully using ${model.name}`);
+        console.log(`  ✅ Successfully using ${model.name} with JSON mode`);
+        usedModel = model.name;
         break;
       } catch (error) {
-        if (error.response?.status === 404 || error.response?.status === 400) {
-          console.log(`  ❌ ${model.name} not available, trying next...`);
-          continue;
+        const status = error.response?.status;
+        const errorMsg = error.response?.data?.error?.message || error.message;
+        console.log(`  ❌ ${model.name} failed (${status}): ${errorMsg}`);
+        
+        // If JSON mode not supported, try without it
+        if (status === 400 && errorMsg?.includes('response_mime_type')) {
+          console.log(`  🔄 Retrying ${model.name} without JSON mode...`);
+          try {
+            const requestDataNoJson = { ...requestData };
+            delete requestDataNoJson.generationConfig.response_mime_type;
+            response = await axios.post(model.url, requestDataNoJson, requestConfig);
+            console.log(`  ✅ Successfully using ${model.name} without JSON mode`);
+            usedModel = model.name;
+            break;
+          } catch (retryError) {
+            console.log(`  ❌ ${model.name} retry also failed`);
+          }
         }
-        throw error;
+        continue;
       }
     }
 
     if (!response) {
-      console.log('⚠️ All Gemini models failed for receipt scanning');
+      console.log('⚠️ All Gemini models failed for receipt scanning - falling back to OCR');
       return null;
     }
+    
+    console.log(`📊 Using model: ${usedModel}`)
 
     const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
@@ -706,33 +753,54 @@ KURALLAR:
       timeout: 45000, // 45 seconds for product + price lookup
     };
 
-    // Try gemini-1.5-flash first, then fallback
+    // Try multiple Gemini models (v1 API works better with most API keys)
     const modelsToTry = [
-      { name: 'gemini-1.5-flash', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}` },
-      { name: 'gemini-1.5-pro', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}` },
       { name: 'gemini-2.0-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-1.5-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-1.5-flash-latest', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-2.5-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}` },
     ];
 
     let response = null;
+    let usedModel = null;
+    
+    // First try with JSON mode
     for (const model of modelsToTry) {
       try {
-        console.log(`  🔄 Trying ${model.name} for product scanning...`);
+        console.log(`  🔄 Trying ${model.name} for product scanning (JSON mode)...`);
         response = await axios.post(model.url, requestData, requestConfig);
-        console.log(`  ✅ Successfully using ${model.name}`);
+        console.log(`  ✅ Successfully using ${model.name} with JSON mode`);
+        usedModel = model.name;
         break;
       } catch (error) {
-        if (error.response?.status === 404 || error.response?.status === 400) {
-          console.log(`  ❌ ${model.name} not available, trying next...`);
-          continue;
+        const status = error.response?.status;
+        const errorMsg = error.response?.data?.error?.message || error.message;
+        console.log(`  ❌ ${model.name} failed (${status}): ${errorMsg}`);
+        
+        // If JSON mode not supported, try without it
+        if (status === 400 && errorMsg?.includes('response_mime_type')) {
+          console.log(`  🔄 Retrying ${model.name} without JSON mode...`);
+          try {
+            const requestDataNoJson = { ...requestData };
+            delete requestDataNoJson.generationConfig.response_mime_type;
+            response = await axios.post(model.url, requestDataNoJson, requestConfig);
+            console.log(`  ✅ Successfully using ${model.name} without JSON mode`);
+            usedModel = model.name;
+            break;
+          } catch (retryError) {
+            console.log(`  ❌ ${model.name} retry also failed`);
+          }
         }
-        throw error;
+        continue;
       }
     }
 
     if (!response) {
-      console.log('⚠️ All Gemini models failed for product scanning');
+      console.log('⚠️ All Gemini models failed for product scanning - falling back to Vision API');
       return null;
     }
+    
+    console.log(`📊 Using model: ${usedModel}`);
 
     const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
