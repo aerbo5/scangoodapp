@@ -1135,7 +1135,8 @@ const parseReceiptText = (text) => {
                            /^\d{3}-\d{3}-\d{4}$/.test(line) || // Just phone number
                            /^(store|manager|cashier|register|terminal|lane|phone|zip|city|state|address|street|avenue|road|boulevard|drive|way|circle|court|landing|river|ste|suite|nw|ne|sw|se)$/i.test(line) ||
                            /\b(river|landing|ste|suite|dr|drive|nw|ne|sw|se|fl|florida|mi|miami)\b/i.test(line) || // Address keywords
-                           /^(credit|payment|amount|order\s*total|grand\s*total|subtotal|tax|sales\s*tax|total\s*sales|total\s*due|balance\s*due|change)$/i.test(line); // Financial summary terms
+                           /^(credit|payment|amount|order\s*total|grand\s*total|subtotal|tax|sales\s*tax|total\s*sales|total\s*due|balance\s*due|change)\b/i.test(line) || // Financial summary terms (starts with)
+                           /\b(credit\s*card|purchase\s*mastercard|purchase\s*visa|acct\s*#|auth\s*#|trace\s*#|reference\s*#|receipt\s*id|presto|entry\s*method|cntctless|issuer|us\s*debit)\b/i.test(line); // Payment card details
     
     if (shouldSkipLine) {
       console.log(`  ⏭️  Skipping excluded line: "${line}"`);
