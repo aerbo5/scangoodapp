@@ -564,6 +564,7 @@ KRİTİK: SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi, toplam, mağ
 
     let response = null;
     let usedModel = null;
+    let usedJsonMode = false;
     
     // First try with JSON mode
     for (const model of modelsToTry) {
@@ -572,14 +573,19 @@ KRİTİK: SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi, toplam, mağ
         response = await axios.post(model.url, requestData, requestConfig);
         console.log(`  ✅ Successfully using ${model.name} with JSON mode`);
         usedModel = model.name;
+        usedJsonMode = true;
         break;
       } catch (error) {
         const status = error.response?.status;
         const errorMsg = error.response?.data?.error?.message || error.message;
+        const errorData = error.response?.data?.error;
         console.log(`  ❌ ${model.name} failed (${status}): ${errorMsg}`);
+        if (errorData) {
+          console.log(`  📋 Error details:`, JSON.stringify(errorData, null, 2));
+        }
         
         // If JSON mode not supported, try without it
-        if (status === 400 && errorMsg?.includes('response_mime_type')) {
+        if (status === 400 && (errorMsg?.includes('response_mime_type') || errorMsg?.includes('generationConfig'))) {
           console.log(`  🔄 Retrying ${model.name} without JSON mode...`);
           try {
             const requestDataNoJson = { ...requestData };
@@ -587,9 +593,12 @@ KRİTİK: SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi, toplam, mağ
             response = await axios.post(model.url, requestDataNoJson, requestConfig);
             console.log(`  ✅ Successfully using ${model.name} without JSON mode`);
             usedModel = model.name;
+            usedJsonMode = false;
             break;
           } catch (retryError) {
-            console.log(`  ❌ ${model.name} retry also failed`);
+            const retryStatus = retryError.response?.status;
+            const retryMsg = retryError.response?.data?.error?.message || retryError.message;
+            console.log(`  ❌ ${model.name} retry also failed (${retryStatus}): ${retryMsg}`);
           }
         }
         continue;
@@ -598,78 +607,85 @@ KRİTİK: SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi, toplam, mağ
 
     if (!response) {
       console.log('⚠️ All Gemini models failed for receipt scanning - falling back to OCR');
+      console.log('💡 Check: API key valid? Models available? Network connection?');
       return null;
     }
     
-    console.log(`📊 Using model: ${usedModel}`)
+    console.log(`📊 Using model: ${usedModel}, JSON mode: ${usedJsonMode}`);
 
     const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       console.log('⚠️ Gemini returned empty response');
+      console.log('📋 Full response:', JSON.stringify(response.data, null, 2));
       return null;
     }
 
-    console.log('📄 Gemini receipt response:', text.substring(0, 500));
+    console.log('📄 Gemini receipt response (first 1000 chars):', text.substring(0, 1000));
 
-    // Parse JSON response
+    // Parse JSON response - handle both JSON mode and text responses
+    let result = null;
+    
+    // Try direct JSON parse first
     try {
-      const result = JSON.parse(text);
-      
-      if (result.items && Array.isArray(result.items)) {
-        // Calculate items total if not provided
-        if (!result.itemsTotal) {
-          result.itemsTotal = result.items.reduce((sum, item) => {
-            const price = parseFloat(item.price) || 0;
-            const qty = parseInt(item.quantity) || 1;
-            return sum + (price * qty);
-          }, 0);
-        }
-        
-        // Format items to match our expected structure
-        const formattedItems = result.items.map(item => ({
-          name: item.name || item.item_name || 'Unknown Item',
-          price: parseFloat(item.price) || 0,
-          quantity: parseInt(item.quantity) || 1,
-          totalLinePrice: (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1),
-        }));
-
-        console.log(`✅ Gemini extracted ${formattedItems.length} items, total: $${result.itemsTotal.toFixed(2)}`);
-        
-        return {
-          items: formattedItems,
-          store: result.store || null,
-          date: result.date || null,
-          amount: parseFloat(result.itemsTotal) || 0,
-          youPaid: parseFloat(result.itemsTotal) || 0,
-          source: 'gemini',
-        };
-      }
+      result = JSON.parse(text);
+      console.log('✅ Direct JSON parse successful');
     } catch (parseError) {
-      console.error('❌ Failed to parse Gemini JSON response:', parseError.message);
-      // Try to extract JSON from response if it contains markdown
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const result = JSON.parse(jsonMatch[0]);
-          if (result.items) {
-            return {
-              items: result.items.map(item => ({
-                name: item.name || item.item_name || 'Unknown',
-                price: parseFloat(item.price) || 0,
-                quantity: parseInt(item.quantity) || 1,
-                totalLinePrice: (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1),
-              })),
-              store: result.store || null,
-              date: result.date || null,
-              amount: result.itemsTotal || 0,
-              youPaid: result.itemsTotal || 0,
-              source: 'gemini',
-            };
+      console.log('⚠️ Direct JSON parse failed, trying to extract JSON from text...');
+      // Try to extract JSON from markdown code blocks or plain text
+      const jsonPatterns = [
+        /```json\s*(\{[\s\S]*?\})\s*```/,  // Markdown code block
+        /```\s*(\{[\s\S]*?\})\s*```/,       // Code block without json
+        /(\{[\s\S]*\})/,                     // Any JSON object
+      ];
+      
+      for (const pattern of jsonPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          try {
+            result = JSON.parse(match[1] || match[0]);
+            console.log('✅ Extracted JSON from text using pattern');
+            break;
+          } catch (e) {
+            console.log(`⚠️ Pattern matched but parse failed: ${e.message}`);
           }
-        } catch (e) {
-          console.error('❌ Secondary JSON parse also failed');
         }
       }
+    }
+    
+    if (result && result.items && Array.isArray(result.items)) {
+      // Calculate items total if not provided
+      if (!result.itemsTotal) {
+        result.itemsTotal = result.items.reduce((sum, item) => {
+          const price = parseFloat(item.price) || 0;
+          const qty = parseInt(item.quantity) || 1;
+          return sum + (price * qty);
+        }, 0);
+      }
+      
+      // Format items to match our expected structure
+      const formattedItems = result.items.map(item => ({
+        name: item.name || item.item_name || 'Unknown Item',
+        price: parseFloat(item.price) || 0,
+        quantity: parseInt(item.quantity) || 1,
+        totalLinePrice: (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1),
+      }));
+
+      console.log(`✅ Gemini extracted ${formattedItems.length} items, total: $${result.itemsTotal.toFixed(2)}`);
+      if (result.store) console.log(`   Store: ${result.store}`);
+      if (result.date) console.log(`   Date: ${result.date}`);
+      
+      return {
+        items: formattedItems,
+        store: result.store || null,
+        date: result.date || null,
+        amount: parseFloat(result.itemsTotal) || 0,
+        youPaid: parseFloat(result.itemsTotal) || 0,
+        source: 'gemini',
+      };
+    } else {
+      console.error('❌ No valid items found in Gemini response');
+      console.log('📋 Response text:', text.substring(0, 500));
+      return null;
     }
 
     return null;
@@ -763,6 +779,7 @@ KURALLAR:
 
     let response = null;
     let usedModel = null;
+    let usedJsonMode = false;
     
     // First try with JSON mode
     for (const model of modelsToTry) {
@@ -771,14 +788,19 @@ KURALLAR:
         response = await axios.post(model.url, requestData, requestConfig);
         console.log(`  ✅ Successfully using ${model.name} with JSON mode`);
         usedModel = model.name;
+        usedJsonMode = true;
         break;
       } catch (error) {
         const status = error.response?.status;
         const errorMsg = error.response?.data?.error?.message || error.message;
+        const errorData = error.response?.data?.error;
         console.log(`  ❌ ${model.name} failed (${status}): ${errorMsg}`);
+        if (errorData) {
+          console.log(`  📋 Error details:`, JSON.stringify(errorData, null, 2));
+        }
         
         // If JSON mode not supported, try without it
-        if (status === 400 && errorMsg?.includes('response_mime_type')) {
+        if (status === 400 && (errorMsg?.includes('response_mime_type') || errorMsg?.includes('generationConfig'))) {
           console.log(`  🔄 Retrying ${model.name} without JSON mode...`);
           try {
             const requestDataNoJson = { ...requestData };
@@ -786,9 +808,12 @@ KURALLAR:
             response = await axios.post(model.url, requestDataNoJson, requestConfig);
             console.log(`  ✅ Successfully using ${model.name} without JSON mode`);
             usedModel = model.name;
+            usedJsonMode = false;
             break;
           } catch (retryError) {
-            console.log(`  ❌ ${model.name} retry also failed`);
+            const retryStatus = retryError.response?.status;
+            const retryMsg = retryError.response?.data?.error?.message || retryError.message;
+            console.log(`  ❌ ${model.name} retry also failed (${retryStatus}): ${retryMsg}`);
           }
         }
         continue;
@@ -797,76 +822,84 @@ KURALLAR:
 
     if (!response) {
       console.log('⚠️ All Gemini models failed for product scanning - falling back to Vision API');
+      console.log('💡 Check: API key valid? Models available? Network connection?');
       return null;
     }
     
-    console.log(`📊 Using model: ${usedModel}`);
+    console.log(`📊 Using model: ${usedModel}, JSON mode: ${usedJsonMode}`);
 
     const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
       console.log('⚠️ Gemini returned empty response');
+      console.log('📋 Full response:', JSON.stringify(response.data, null, 2));
       return null;
     }
 
-    console.log('📄 Gemini product response:', text.substring(0, 500));
+    console.log('📄 Gemini product response (first 1000 chars):', text.substring(0, 1000));
 
-    // Parse JSON response
+    // Parse JSON response - handle both JSON mode and text responses
+    let result = null;
+    
+    // Try direct JSON parse first
     try {
-      const result = JSON.parse(text);
-      
-      if (result.product_name) {
-        console.log(`✅ Gemini identified product: ${result.product_name}`);
-        console.log(`   Brand: ${result.brand || 'Unknown'}`);
-        console.log(`   Size: ${result.size || 'Unknown'}`);
-        console.log(`   Cheapest: ${result.cheapest_option?.store} @ $${result.cheapest_option?.price}`);
-        
-        // Format response to match our expected structure
-        return {
-          product: {
-            name: result.product_name,
-            brand: result.brand || null,
-            variant: result.variant || null,
-            size: result.size || null,
-            fullName: result.product_name,
-          },
-          priceComparison: {
-            currency: result.currency || 'USD',
-            prices: result.prices_by_store || [],
-            cheapest: result.cheapest_option || null,
-            averagePrice: result.average_price || null,
-          },
-          source: 'gemini',
-        };
-      }
+      result = JSON.parse(text);
+      console.log('✅ Direct JSON parse successful');
     } catch (parseError) {
-      console.error('❌ Failed to parse Gemini JSON response:', parseError.message);
-      // Try to extract JSON from response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const result = JSON.parse(jsonMatch[0]);
-          if (result.product_name) {
-            return {
-              product: {
-                name: result.product_name,
-                brand: result.brand || null,
-                variant: result.variant || null,
-                size: result.size || null,
-                fullName: result.product_name,
-              },
-              priceComparison: {
-                currency: result.currency || 'USD',
-                prices: result.prices_by_store || [],
-                cheapest: result.cheapest_option || null,
-                averagePrice: result.average_price || null,
-              },
-              source: 'gemini',
-            };
+      console.log('⚠️ Direct JSON parse failed, trying to extract JSON from text...');
+      // Try to extract JSON from markdown code blocks or plain text
+      const jsonPatterns = [
+        /```json\s*(\{[\s\S]*?\})\s*```/,  // Markdown code block
+        /```\s*(\{[\s\S]*?\})\s*```/,       // Code block without json
+        /(\{[\s\S]*\})/,                     // Any JSON object
+      ];
+      
+      for (const pattern of jsonPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          try {
+            result = JSON.parse(match[1] || match[0]);
+            console.log('✅ Extracted JSON from text using pattern');
+            break;
+          } catch (e) {
+            console.log(`⚠️ Pattern matched but parse failed: ${e.message}`);
           }
-        } catch (e) {
-          console.error('❌ Secondary JSON parse also failed');
         }
       }
+    }
+    
+    if (result && result.product_name) {
+      console.log(`✅ Gemini identified product: ${result.product_name}`);
+      console.log(`   Brand: ${result.brand || 'Unknown'}`);
+      console.log(`   Variant: ${result.variant || 'Unknown'}`);
+      console.log(`   Size: ${result.size || 'Unknown'}`);
+      if (result.cheapest_option) {
+        console.log(`   Cheapest: ${result.cheapest_option.store} @ $${result.cheapest_option.price}`);
+      }
+      if (result.prices_by_store && result.prices_by_store.length > 0) {
+        console.log(`   Found ${result.prices_by_store.length} store prices`);
+      }
+      
+      // Format response to match our expected structure
+      return {
+        product: {
+          name: result.product_name,
+          brand: result.brand || null,
+          variant: result.variant || null,
+          size: result.size || null,
+          fullName: result.product_name,
+        },
+        priceComparison: {
+          currency: result.currency || 'USD',
+          prices: result.prices_by_store || [],
+          cheapest: result.cheapest_option || null,
+          averagePrice: result.average_price || null,
+        },
+        source: 'gemini',
+      };
+    } else {
+      console.error('❌ No valid product data found in Gemini response');
+      console.log('📋 Response text:', text.substring(0, 500));
+      return null;
     }
 
     return null;
