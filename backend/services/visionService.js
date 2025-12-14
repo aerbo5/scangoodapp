@@ -12,6 +12,8 @@ let azureKey = null;
 let azureEndpoint = null;
 let useGeminiVision = false;
 let geminiApiKey = null;
+let useOpenAIVision = false;
+let openAIApiKey = null;
 
 // Initialize Vision client (optional - only if API key is provided)
 const initializeVision = () => {
@@ -54,6 +56,14 @@ const initializeVision = () => {
     useGeminiVision = true;
     console.log('✅ Google Gemini Vision API initialized (AI-powered product recognition)');
     console.log('💡 Note: Gemini Vision does NOT support OCR - use Google Cloud Vision or Azure for receipt scanning');
+  }
+
+  // Try OpenAI Vision API (GPT-4 Vision / GPT-4o)
+  if (process.env.OPENAI_API_KEY) {
+    openAIApiKey = process.env.OPENAI_API_KEY;
+    useOpenAIVision = true;
+    console.log('✅ OpenAI Vision API initialized (GPT-4 Vision / GPT-4o)');
+    console.log('💡 OpenAI supports both OCR and product recognition with JSON mode');
   }
 
   // Check if OCR is available
@@ -700,6 +710,190 @@ KRİTİK: SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi, toplam, mağ
   }
 };
 
+// AI-powered receipt scanning using OpenAI Vision API (GPT-4 Vision / GPT-4o)
+const scanReceiptWithOpenAI = async (imageBuffer) => {
+  if (!useOpenAIVision || !openAIApiKey) {
+    console.log('⚠️ OpenAI Vision not configured for receipt scanning');
+    return null;
+  }
+
+  try {
+    console.log('🤖 Scanning receipt with OpenAI Vision (GPT-4o)...');
+    const base64Image = imageBuffer.toString('base64');
+    
+    // Strong prompt for receipt parsing
+    const prompt = `Bu bir market fişidir. Lütfen sadece satın alınan gerçek ürünleri (line items) ve bunların birim fiyatlarını (price) çıkar.
+
+Aşağıdaki kurallara KESİNLİKLE uy:
+
+1. GÜRÜLTÜYÜ GÖRMEZDEN GEL - ASLA ÜRÜN OLARAK EKLEME:
+   - Market adı: "MILAMS", "Publix", "Walmart", "Target", "Kroger" vb.
+   - Adres, telefon, web sitesi
+   - "Tax", "Balance", "Total", "Net Sales", "TOTAL SALES", "SAVINGS GRAND TOTAL"
+   - "Debit", "Mastercard", "Visa", "Credit", "Payment", "Amount", "Grand Total", "Order Total", "Sales Tax", "Change"
+   - "Inv#:", "Tra#:", "Reference #", "Auth #", "Acct #", "Receipt ID", "Trace #"
+   - "PRESTO", "Entry Method", "AID", "NETWORK", "TENDER", "APPROVAL"
+   - Mağaza sloganı: "FAMILY GROCER SINCE 1984", "THANK YOU FOR SHOPPING" vb.
+
+2. DARA/AĞIRLIK SATIRLARINI ATLA - ASLA ÜRÜN OLARAK EKLEME:
+   - "[Tare:", "[lare:", "Ifare:" (yazım hataları dahil)
+   - "lb @", "oz @", "kg @", ağırlık hesaplaması içeren satırlar
+   - "0.03 lb", "2.22 lb", "$3.99/lb" gibi ağırlık bilgileri
+   - Sadece ana ürün adını al, ağırlık bilgisini atla
+
+3. FİYAT DOĞRULUĞU - ÇOK ÖNEMLİ:
+   - Bir ürünün fiyatı satırın en sağındadır
+   - Eğer bir satırda fiyat yoksa, o satırı ATLA
+   - ASLA "Total", "Grand Total", "Amount" tutarını (örn: 59.01, 358.7) ürün fiyatı olarak yazma
+   - Eğer fiyat çok yüksekse (örn: $59.01 bir meyve için), bu muhtemelen toplam tutardır - ATLA
+
+4. İNDİRİMLERİ ATLA:
+   - "Markdown", "Savings", "You Save", "Discount" satırlarını ürün olarak ekleme
+
+5. KODLAR VE NUMARALAR - ASLA ÜRÜN OLARAK EKLEME:
+   - ":1030", ":03", sadece numaralar
+   - "Inv#:00547101 Tra#:698320" gibi invoice/trace numaraları
+   - Sadece harflerden oluşan kısa kodlar (örn: "IMPROVE" tek başına ürün değil)
+
+6. GERÇEK ÜRÜN ÖRNEKLERİ (BUNLARI EKLE):
+   - "BLACKBERRIES" - meyve
+   - "GRAPE WHT ORGN" - meyve
+   - "ALMOND BREEZE HULK" - içecek
+   - "GRAZE OLIVE OIL SIZZLE" - yağ
+   - "ORGANIC SALAD BABY KALE" - sebze
+   - "BANANA" - meyve
+   - "BLUEBERRIES 6 02" - meyve (ama fiyatı doğru olmalı, toplam değil)
+
+Çıktıyı şu JSON formatında ver:
+{
+  "items": [
+    {"name": "Ürün Adı", "price": 0.00, "quantity": 1}
+  ],
+  "store": "Mağaza Adı (varsa)",
+  "date": "Tarih (varsa, format: MM/DD/YYYY)",
+  "itemsTotal": 0.00
+}
+
+KRİTİK: SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi, toplam, mağaza bilgisi, dara, kod veya numara ürün olarak ekleme.`;
+
+    const requestData = {
+      model: "gpt-4o", // GPT-4o supports vision and JSON mode
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${base64Image}`
+              }
+            }
+          ]
+        }
+      ],
+      response_format: { type: "json_object" }, // JSON mode
+      temperature: 0.1,
+      max_tokens: 2000
+    };
+
+    const requestConfig = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openAIApiKey}`
+      },
+      timeout: 30000,
+    };
+
+    console.log('  🔄 Calling OpenAI GPT-4o for receipt scanning...');
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      requestData,
+      requestConfig
+    );
+
+    const text = response.data.choices?.[0]?.message?.content;
+    if (!text) {
+      console.log('⚠️ OpenAI returned empty response');
+      return null;
+    }
+
+    console.log('📄 OpenAI receipt response (first 1000 chars):', text.substring(0, 1000));
+
+    // Parse JSON response
+    let result = null;
+    try {
+      result = JSON.parse(text);
+      console.log('✅ Direct JSON parse successful');
+    } catch (parseError) {
+      console.log('⚠️ Direct JSON parse failed, trying to extract JSON from text...');
+      const jsonPatterns = [
+        /```json\s*(\{[\s\S]*?\})\s*```/,
+        /```\s*(\{[\s\S]*?\})\s*```/,
+        /(\{[\s\S]*\})/,
+      ];
+      
+      for (const pattern of jsonPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          try {
+            result = JSON.parse(match[1] || match[0]);
+            console.log('✅ Extracted JSON from text using pattern');
+            break;
+          } catch (e) {
+            console.log(`⚠️ Pattern matched but parse failed: ${e.message}`);
+          }
+        }
+      }
+    }
+    
+    if (result && result.items && Array.isArray(result.items)) {
+      if (!result.itemsTotal) {
+        result.itemsTotal = result.items.reduce((sum, item) => {
+          const price = parseFloat(item.price) || 0;
+          const qty = parseInt(item.quantity) || 1;
+          return sum + (price * qty);
+        }, 0);
+      }
+      
+      const formattedItems = result.items.map(item => ({
+        name: item.name || item.item_name || 'Unknown Item',
+        price: parseFloat(item.price) || 0,
+        quantity: parseInt(item.quantity) || 1,
+        totalLinePrice: (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1),
+      }));
+
+      console.log(`✅ OpenAI extracted ${formattedItems.length} items, total: $${result.itemsTotal.toFixed(2)}`);
+      if (result.store) console.log(`   Store: ${result.store}`);
+      if (result.date) console.log(`   Date: ${result.date}`);
+      
+      return {
+        items: formattedItems,
+        store: result.store || null,
+        date: result.date || null,
+        amount: parseFloat(result.itemsTotal) || 0,
+        youPaid: parseFloat(result.itemsTotal) || 0,
+        source: 'openai',
+      };
+    } else {
+      console.error('❌ No valid items found in OpenAI response');
+      console.log('📋 Response text:', text.substring(0, 500));
+      return null;
+    }
+
+  } catch (error) {
+    console.error('❌ Error in OpenAI receipt scanning:', {
+      status: error.response?.status,
+      message: error.message,
+      data: error.response?.data,
+    });
+    return null;
+  }
+};
+
 // AI-powered product scanning with price comparison using Gemini Vision API (JSON mode)
 const scanProductWithGemini = async (imageBuffer) => {
   if (!useGeminiVision || !geminiApiKey) {
@@ -942,6 +1136,229 @@ KRİTİK KURALLAR:
     return null;
   } catch (error) {
     console.error('❌ Error in Gemini product scanning:', {
+      status: error.response?.status,
+      message: error.message,
+      data: error.response?.data,
+    });
+    return null;
+  }
+};
+
+// AI-powered product scanning with price comparison using OpenAI Vision API (GPT-4o)
+const scanProductWithOpenAI = async (imageBuffer) => {
+  if (!useOpenAIVision || !openAIApiKey) {
+    console.log('⚠️ OpenAI Vision not configured for product scanning');
+    return null;
+  }
+
+  try {
+    console.log('🤖 Scanning product with OpenAI Vision (GPT-4o + price comparison)...');
+    const base64Image = imageBuffer.toString('base64');
+    
+    const prompt = `Bu görseldeki ürünü detaylıca analiz et. Ürünün tam markasını, çeşidini (Creamy, Crunchy, Original vb.) ve net ağırlığını (oz/gr/ml) tespit et.
+
+Ardından, bu ürünün Amerika Birleşik Devletleri'ndeki popüler perakendecilerdeki (Walmart, Target, Amazon, Kroger, Publix, Walgreens, CVS, Costco) ortalama/güncel raf fiyatlarını listele. Fiyatları kıyasla ve en ucuz seçeneği belirle.
+
+KRİTİK KURALLAR:
+1. "product_name" TAM ÜRÜN ADI olmalı: Marka + Çeşit + Ürün Adı + Ağırlık
+   - DOĞRU: "Jif Creamy Peanut Butter, 16 oz"
+   - DOĞRU: "Skippy Natural Peanut Butter, 18 oz"
+   - YANLIŞ: "Jif Peanut Butter 16 oz" (çeşit eksik)
+   - YANLIŞ: "Creamy" (sadece çeşit, marka yok)
+
+2. "brand" SADECE marka adı (örn: "Jif", "Skippy", "Peter Pan")
+   - Marka adını tam olarak yaz (ambalajda ne yazıyorsa)
+
+3. "variant" çeşit bilgisi (Creamy, Crunchy, Original, Natural vb.)
+   - Eğer çeşit yoksa null veya boş string
+
+4. Fiyatlar USD cinsinden olmalı
+5. Gerçekçi fiyatlar ver (ABD market fiyatları)
+6. En az 4-6 mağaza listele
+7. Stok durumu tahmini ekle
+8. Unit price hesapla (price / size value)
+
+Çıktıyı SADECE geçerli bir JSON formatında ver (AŞAĞIDAKİ FORMATA UYGUN):
+{
+  "product_name": "Jif Creamy Peanut Butter, 16 oz",
+  "brand": "Jif",
+  "variant": "Creamy",
+  "size": {
+    "value": 16,
+    "unit": "oz"
+  },
+  "currency": "USD",
+  "matches": [
+    {
+      "store": "Target",
+      "item_name": "Jif Creamy Peanut Butter - 16oz",
+      "price": 3.19,
+      "unit_price": 0.20,
+      "unit_price_unit": "USD/oz",
+      "availability": "in_stock_listed",
+      "channel": "online_listing"
+    },
+    {
+      "store": "Publix",
+      "item_name": "Jif Peanut Butter Spreads - 16 oz",
+      "price": 3.59,
+      "unit_price": 0.22,
+      "unit_price_unit": "USD/oz",
+      "availability": "price_listed",
+      "channel": "online_delivery_listing"
+    },
+    {
+      "store": "Walmart",
+      "item_name": "Jif Creamy Peanut Butter, 16-Ounce Jar",
+      "price": 4.49,
+      "unit_price": 0.281,
+      "unit_price_unit": "USD/oz",
+      "availability": "price_listed",
+      "channel": "online_listing"
+    }
+  ],
+  "best_price": {
+    "store": "Target",
+    "price": 3.19,
+    "unit_price": 0.20,
+    "unit": "USD/oz"
+  }
+}`;
+
+    const requestData = {
+      model: "gpt-4o", // GPT-4o supports vision and JSON mode
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${base64Image}`
+              }
+            }
+          ]
+        }
+      ],
+      response_format: { type: "json_object" }, // JSON mode
+      temperature: 0.2,
+      max_tokens: 2000
+    };
+
+    const requestConfig = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openAIApiKey}`
+      },
+      timeout: 45000,
+    };
+
+    console.log('  🔄 Calling OpenAI GPT-4o for product scanning...');
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      requestData,
+      requestConfig
+    );
+
+    const text = response.data.choices?.[0]?.message?.content;
+    if (!text) {
+      console.log('⚠️ OpenAI returned empty response');
+      return null;
+    }
+
+    console.log('📄 OpenAI product response (first 1000 chars):', text.substring(0, 1000));
+
+    // Parse JSON response
+    let result = null;
+    try {
+      result = JSON.parse(text);
+      console.log('✅ Direct JSON parse successful');
+    } catch (parseError) {
+      console.log('⚠️ Direct JSON parse failed, trying to extract JSON from text...');
+      const jsonPatterns = [
+        /```json\s*(\{[\s\S]*?\})\s*```/,
+        /```\s*(\{[\s\S]*?\})\s*```/,
+        /(\{[\s\S]*\})/,
+      ];
+      
+      for (const pattern of jsonPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          try {
+            result = JSON.parse(match[1] || match[0]);
+            console.log('✅ Extracted JSON from text using pattern');
+            break;
+          } catch (e) {
+            console.log(`⚠️ Pattern matched but parse failed: ${e.message}`);
+          }
+        }
+      }
+    }
+    
+    if (result && result.product_name) {
+      console.log(`✅ OpenAI identified product: ${result.product_name}`);
+      console.log(`   Brand: ${result.brand || 'Unknown'}`);
+      console.log(`   Variant: ${result.variant || 'Unknown'}`);
+      const sizeStr = result.size?.value && result.size?.unit 
+        ? `${result.size.value} ${result.size.unit}` 
+        : (result.size || 'Unknown');
+      console.log(`   Size: ${sizeStr}`);
+      
+      // Convert matches format to our expected format
+      const matches = result.matches || [];
+      const bestPrice = result.best_price || null;
+      
+      if (bestPrice) {
+        console.log(`   Best Price: ${bestPrice.store} @ $${bestPrice.price} (${bestPrice.unit_price} ${bestPrice.unit})`);
+      }
+      if (matches.length > 0) {
+        console.log(`   Found ${matches.length} store prices`);
+      }
+      
+      // Format size
+      const sizeValue = result.size?.value || (result.size ? parseFloat(result.size) : null);
+      const sizeUnit = result.size?.unit || (result.size ? result.size.replace(/[\d.]/g, '').trim() : null);
+      
+      return {
+        product: {
+          name: result.product_name,
+          brand: result.brand || null,
+          variant: result.variant || null,
+          size: sizeStr,
+          sizeValue: sizeValue,
+          sizeUnit: sizeUnit,
+          fullName: result.product_name,
+        },
+        priceComparison: {
+          currency: result.currency || 'USD',
+          matches: matches, // New format: matches array
+          bestPrice: bestPrice, // New format: best_price object
+          // Legacy format support (for backward compatibility)
+          prices: matches.map(m => ({
+            store: m.store,
+            price: m.price,
+            note: m.availability || m.channel || ''
+          })),
+          cheapest: bestPrice ? {
+            store: bestPrice.store,
+            price: bestPrice.price,
+            availability: bestPrice.availability || 'in_stock_listed'
+          } : null,
+        },
+        source: 'openai',
+      };
+    } else {
+      console.error('❌ No valid product data found in OpenAI response');
+      console.log('📋 Response text:', text.substring(0, 500));
+      return null;
+    }
+
+  } catch (error) {
+    console.error('❌ Error in OpenAI product scanning:', {
       status: error.response?.status,
       message: error.message,
       data: error.response?.data,
@@ -1955,5 +2372,7 @@ module.exports = {
   parseReceiptText,
   scanReceiptWithGemini,
   scanProductWithGemini,
+  scanReceiptWithOpenAI,
+  scanProductWithOpenAI,
 };
 

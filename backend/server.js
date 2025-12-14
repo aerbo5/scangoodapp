@@ -124,23 +124,36 @@ app.post('/api/scan/receipt', upload.single('image'), async (req, res) => {
         originalname: req.file.originalname,
       });
       
-      // METHOD 1: Try Gemini AI with JSON mode first (more accurate for receipts)
-      console.log('🤖 Trying Gemini AI for receipt scanning...');
-      const geminiResult = await visionService.scanReceiptWithGemini(req.file.buffer);
+      // METHOD 1: Try OpenAI GPT-4o first (most accurate)
+      console.log('🤖 Trying OpenAI GPT-4o for receipt scanning...');
+      const openAIResult = await visionService.scanReceiptWithOpenAI(req.file.buffer);
       
-      if (geminiResult && geminiResult.items && geminiResult.items.length > 0) {
-        console.log('✅ Gemini AI successfully extracted items');
-        items = geminiResult.items;
-        storeName = geminiResult.store;
-        receiptDate = geminiResult.date;
-        itemsAmount = geminiResult.amount || 0;
-        scanSource = 'gemini';
+      if (openAIResult && openAIResult.items && openAIResult.items.length > 0) {
+        console.log('✅ OpenAI GPT-4o successfully extracted items');
+        items = openAIResult.items;
+        storeName = openAIResult.store;
+        receiptDate = openAIResult.date;
+        itemsAmount = openAIResult.amount || 0;
+        scanSource = 'openai';
         ignoredElements = { paymentInfo: [], storeInfo: [], metadata: [], footerCoupons: [], nonItem: [], unclear: [] };
       } else {
-        // METHOD 2: Fallback to OCR + parseReceiptText
-        console.log('⚠️ Gemini failed or returned no items, falling back to OCR...');
-        console.log('📸 Extracting text from receipt image with OCR...');
-        receiptText = await visionService.extractTextFromImage(req.file.buffer);
+        // METHOD 2: Try Gemini AI as fallback
+        console.log('⚠️ OpenAI failed or returned no items, trying Gemini AI...');
+        const geminiResult = await visionService.scanReceiptWithGemini(req.file.buffer);
+        
+        if (geminiResult && geminiResult.items && geminiResult.items.length > 0) {
+          console.log('✅ Gemini AI successfully extracted items');
+          items = geminiResult.items;
+          storeName = geminiResult.store;
+          receiptDate = geminiResult.date;
+          itemsAmount = geminiResult.amount || 0;
+          scanSource = 'gemini';
+          ignoredElements = { paymentInfo: [], storeInfo: [], metadata: [], footerCoupons: [], nonItem: [], unclear: [] };
+        } else {
+          // METHOD 3: Fallback to OCR + parseReceiptText
+          console.log('⚠️ Both OpenAI and Gemini failed, falling back to OCR...');
+          console.log('📸 Extracting text from receipt image with OCR...');
+          receiptText = await visionService.extractTextFromImage(req.file.buffer);
         
         if (receiptText) {
           console.log('✅ OCR text extracted, length:', receiptText.length);
@@ -363,11 +376,49 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
       console.log('📸 Processing image, size:', req.file.buffer.length, 'bytes');
       
       // Check API keys at the beginning
+      const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
       const hasGeminiKey = !!process.env.GOOGLE_GEMINI_API_KEY;
       const hasVisionKey = !!(process.env.GOOGLE_CLOUD_VISION_API_KEY || process.env.GOOGLE_CLOUD_VISION_KEY_FILE);
       
-      // NEW: Try Gemini JSON mode first for product recognition + price comparison
-      if (hasGeminiKey) {
+      // METHOD 1: Try OpenAI GPT-4o first (most accurate)
+      if (hasOpenAIKey) {
+        console.log('🤖 Trying OpenAI GPT-4o for product recognition + price comparison...');
+        const openAIResult = await visionService.scanProductWithOpenAI(req.file.buffer);
+        
+        if (openAIResult && openAIResult.product && openAIResult.product.name) {
+          console.log('✅ OpenAI GPT-4o successfully identified product with price comparison');
+          productName = openAIResult.product.name;
+          aiProductInfoForScraper = {
+            brand: openAIResult.product.brand,
+            product: openAIResult.product.variant || openAIResult.product.name,
+            fullName: openAIResult.product.fullName,
+            size: openAIResult.product.size,
+          };
+          geminiPriceComparison = openAIResult.priceComparison;
+          
+          // Create product object from OpenAI result
+          product = {
+            brand: openAIResult.product.brand,
+            name: openAIResult.product.name,
+            size: openAIResult.product.size || '1 Each',
+            weight: openAIResult.product.size || '1 Each',
+            category: openAIResult.product.variant || 'General',
+            labels: [openAIResult.product.brand, openAIResult.product.variant].filter(Boolean),
+            stores: null,
+            price: openAIResult.priceComparison?.cheapest?.price || null,
+          };
+          
+          console.log('   Product:', productName);
+          console.log('   Brand:', openAIResult.product.brand || 'N/A');
+          console.log('   Size:', openAIResult.product.size || 'N/A');
+          if (geminiPriceComparison?.cheapest) {
+            console.log('   Cheapest:', geminiPriceComparison.cheapest.store, '@', '$' + geminiPriceComparison.cheapest.price);
+          }
+        }
+      }
+      
+      // METHOD 2: Try Gemini AI as fallback
+      if (!product && hasGeminiKey) {
         console.log('🤖 Trying Gemini AI (JSON mode) for product recognition + price comparison...');
         const geminiResult = await visionService.scanProductWithGemini(req.file.buffer);
         
@@ -943,9 +994,9 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
       barcode: barcode || null,
       labelsDetected: labels ? labels.map(l => l.description) : null,
       productLinks: productLinks, // Internet product links (now includes Aldi and Publix)
-      // Gemini AI price comparison (if available)
+      // AI price comparison (if available - OpenAI or Gemini)
       geminiPriceComparison: geminiPriceComparison || null,
-      scanSource: geminiPriceComparison ? 'gemini' : (barcode ? 'barcode' : 'vision'),
+      scanSource: geminiPriceComparison ? (geminiPriceComparison.source === 'openai' ? 'openai' : 'gemini') : (barcode ? 'barcode' : 'vision'),
     });
   } catch (error) {
     console.error('❌ Error scanning product:', error);
