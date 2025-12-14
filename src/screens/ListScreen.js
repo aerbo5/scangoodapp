@@ -4,7 +4,7 @@ import { Colors, Spacing, BorderRadius, Typography } from '../constants';
 import { Icons } from '../constants/icons';
 import { useLanguage } from '../context/LanguageContext';
 
-const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, originalTotal, youSave, receiptAmount, receiptYouPaid }) => {
+const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, originalTotal, youSave }) => {
   const { t } = useLanguage();
 
   const handleOpenLink = async (item) => {
@@ -25,15 +25,13 @@ const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, origin
     }
   };
 
-  // Amount = Sum of product prices only
-  const amount = parseFloat(receiptAmount || calculateTotal(scannedItems) || 0);
-  // You Paid = Receipt grand total (what you actually paid, tax included)
-  const youPaid = parseFloat(receiptYouPaid || calculateTotal(scannedItems) || 0);
+  // You Paid = Sum of product prices (total of all items)
+  const productTotal = parseFloat(calculateTotal(scannedItems) || 0);
   
   // Ensure all values are numbers before using toFixed
   const originalTotalNum = parseFloat(originalTotal || 0);
   const youSaveNum = parseFloat(youSave || 0);
-  const savings = youSaveNum || (originalTotalNum > 0 ? (originalTotalNum - amount) : 0);
+  const savings = youSaveNum || (originalTotalNum > 0 ? (originalTotalNum - productTotal) : 0);
 
   return (
     <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
@@ -96,18 +94,9 @@ const ListScreen = ({ scannedItems, onNavigate, fadeAnim, calculateTotal, origin
 
               {/* Summary Section */}
               <View style={styles.summarySection}>
-                {receiptAmount !== undefined && receiptAmount > 0 && (
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>{t('list.amount') || 'Amount'}</Text>
-                    <Text style={styles.summaryValue}>${amount.toFixed(2)}</Text>
-                  </View>
-                )}
                 <View style={styles.summaryRow}>
-                  <View style={styles.youPaidContainer}>
-                    <Text style={styles.summaryLabel}>{t('list.youPaid') || 'You Paid'}</Text>
-                    <Text style={styles.beforeTaxNote}>(before tax price)</Text>
-                  </View>
-                  <Text style={styles.summaryValue}>${youPaid.toFixed(2)}</Text>
+                  <Text style={styles.summaryLabel}>{t('list.youPaid') || 'You Paid'}</Text>
+                  <Text style={styles.summaryValue}>${productTotal.toFixed(2)}</Text>
                 </View>
                 {originalTotalNum > 0 && (
                   <View style={styles.summaryRow}>
@@ -265,16 +254,6 @@ const styles = StyleSheet.create({
     ...Typography.bodyBold,
     fontSize: 16,
     color: Colors.text,
-  },
-  youPaidContainer: {
-    flexDirection: 'column',
-  },
-  beforeTaxNote: {
-    ...Typography.caption,
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: 2,
   },
   summaryValue: {
     ...Typography.titleMedium,

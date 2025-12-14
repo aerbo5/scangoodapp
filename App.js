@@ -557,8 +557,6 @@ export default function App() {
             calculateTotal={handleCalculateTotal}
             originalTotal={priceComparisonData?.originalTotal}
             youSave={handleGetSavings()}
-            receiptAmount={priceComparisonData?.receiptAmount}
-            receiptYouPaid={priceComparisonData?.receiptYouPaid}
           />
         );
       case 'similarProducts':
