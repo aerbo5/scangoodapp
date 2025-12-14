@@ -355,41 +355,79 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
     let productName = null;
     let barcode = null;
     let aiProductInfoForScraper = null; // Store AI product info for Aldi scraper
+    let geminiPriceComparison = null; // Store Gemini price comparison results
     const productType = req.body.productType || ''; // Get product type from form data (e.g., "spring water")
 
     // Try image recognition if image is provided
     if (req.file && req.file.buffer) {
       console.log('📸 Processing image, size:', req.file.buffer.length, 'bytes');
       
-      // STEP 1: Try barcode detection first (faster and more accurate)
-      console.log('🔍 Step 1: Trying barcode detection...');
-      barcode = await visionService.detectBarcode(req.file.buffer);
-      
-      if (barcode) {
-        console.log('✅ Barcode detected:', barcode);
-        // Try to find product by barcode (async call to Open Food Facts API)
-        product = await productService.lookupProductByBarcode(barcode);
-        if (product) {
-          console.log('✅ Product found by barcode:', product.name);
-          productName = product.name;
-        } else {
-          console.log('⚠️ Barcode detected but product not found in database, falling back to Vision API');
-          barcode = null; // Reset to try Vision API
-        }
-      } else {
-        console.log('ℹ️  No barcode detected, using Vision API');
-      }
-      
-      // STEP 2: If no barcode or product not found, try AI-powered recognition first (Gemini Vision)
-      // Then fall back to OCR and Vision API label detection
-      
-      // Check API keys at the beginning (for use in multiple steps)
+      // Check API keys at the beginning
       const hasGeminiKey = !!process.env.GOOGLE_GEMINI_API_KEY;
       const hasVisionKey = !!(process.env.GOOGLE_CLOUD_VISION_API_KEY || process.env.GOOGLE_CLOUD_VISION_KEY_FILE);
       
+      // NEW: Try Gemini JSON mode first for product recognition + price comparison
+      if (hasGeminiKey) {
+        console.log('🤖 Trying Gemini AI (JSON mode) for product recognition + price comparison...');
+        const geminiResult = await visionService.scanProductWithGemini(req.file.buffer);
+        
+        if (geminiResult && geminiResult.product && geminiResult.product.name) {
+          console.log('✅ Gemini AI successfully identified product with price comparison');
+          productName = geminiResult.product.name;
+          aiProductInfoForScraper = {
+            brand: geminiResult.product.brand,
+            product: geminiResult.product.variant || geminiResult.product.name,
+            fullName: geminiResult.product.fullName,
+            size: geminiResult.product.size,
+          };
+          geminiPriceComparison = geminiResult.priceComparison;
+          
+          // Create product object from Gemini result
+          product = {
+            brand: geminiResult.product.brand,
+            name: geminiResult.product.name,
+            size: geminiResult.product.size || '1 Each',
+            weight: geminiResult.product.size || '1 Each',
+            category: geminiResult.product.variant || 'General',
+            labels: [geminiResult.product.brand, geminiResult.product.variant].filter(Boolean),
+            stores: null,
+            price: geminiResult.priceComparison?.cheapest?.price || null,
+          };
+          
+          console.log('   Product:', productName);
+          console.log('   Brand:', geminiResult.product.brand || 'N/A');
+          console.log('   Size:', geminiResult.product.size || 'N/A');
+          if (geminiPriceComparison?.cheapest) {
+            console.log('   Cheapest:', geminiPriceComparison.cheapest.store, '@', '$' + geminiPriceComparison.cheapest.price);
+          }
+        }
+      }
+      
+      // STEP 1: Try barcode detection if Gemini didn't find product
+      if (!product) {
+        console.log('🔍 Step 1: Trying barcode detection...');
+        barcode = await visionService.detectBarcode(req.file.buffer);
+        
+        if (barcode) {
+          console.log('✅ Barcode detected:', barcode);
+          // Try to find product by barcode (async call to Open Food Facts API)
+          product = await productService.lookupProductByBarcode(barcode);
+          if (product) {
+            console.log('✅ Product found by barcode:', product.name);
+            productName = product.name;
+          } else {
+            console.log('⚠️ Barcode detected but product not found in database, falling back to Vision API');
+            barcode = null; // Reset to try Vision API
+          }
+        } else {
+          console.log('ℹ️  No barcode detected, using Vision API');
+        }
+      }
+      
+      // STEP 2: If still no product, try old AI-powered recognition (fallback)
       if (!product) {
         if (hasGeminiKey) {
-          console.log('🔍 Step 2a: Trying AI-powered product recognition (Gemini Vision)...');
+          console.log('🔍 Step 2a: Trying legacy AI-powered product recognition (Gemini Vision)...');
           console.log('   📝 Image size:', req.file.buffer.length, 'bytes');
         } else {
           console.log('⚠️ Step 2a: Gemini API key not configured, skipping AI recognition');
@@ -905,6 +943,9 @@ app.post('/api/scan/product', upload.single('image'), async (req, res) => {
       barcode: barcode || null,
       labelsDetected: labels ? labels.map(l => l.description) : null,
       productLinks: productLinks, // Internet product links (now includes Aldi and Publix)
+      // Gemini AI price comparison (if available)
+      geminiPriceComparison: geminiPriceComparison || null,
+      scanSource: geminiPriceComparison ? 'gemini' : (barcode ? 'barcode' : 'vision'),
     });
   } catch (error) {
     console.error('❌ Error scanning product:', error);

@@ -636,6 +636,182 @@ SADECE gerçek ürünleri listele. Hiçbir ödeme, vergi veya toplam bilgisi ür
   }
 };
 
+// AI-powered product scanning with price comparison using Gemini Vision API (JSON mode)
+const scanProductWithGemini = async (imageBuffer) => {
+  if (!useGeminiVision || !geminiApiKey) {
+    console.log('⚠️ Gemini Vision not configured for product scanning');
+    return null;
+  }
+
+  try {
+    console.log('🤖 Scanning product with Gemini Vision (JSON mode + price comparison)...');
+    const base64Image = imageBuffer.toString('base64');
+    
+    // Strong prompt for product recognition and price comparison
+    const prompt = `Bu görseldeki ürünü detaylıca analiz et. Ürünün tam markasını, çeşidini (Creamy, Crunchy, Original vb.) ve net ağırlığını (oz/gr/ml) tespit et.
+
+Ardından, bu ürünün Amerika Birleşik Devletleri'ndeki popüler perakendecilerdeki (Walmart, Target, Amazon, Kroger, Publix, Walgreens, CVS, Costco) ortalama/güncel raf fiyatlarını listele. Fiyatları kıyasla ve en ucuz seçeneği belirle.
+
+KURALLAR:
+1. Ürün adını TAMAMEN ve DOĞRU yaz (marka + çeşit + ağırlık)
+2. Fiyatlar USD cinsinden olmalı
+3. Gerçekçi fiyatlar ver (ABD market fiyatları)
+4. En az 4-6 mağaza listele
+5. Stok durumu tahmini ekle
+
+Çıktıyı SADECE geçerli bir JSON formatında ver:
+{
+  "product_name": "Ürünün Tam Adı ve Gramajı (örn: Jif Creamy Peanut Butter 16 oz)",
+  "brand": "Marka Adı",
+  "variant": "Çeşit (Creamy, Crunchy, Original vb.)",
+  "size": "Ağırlık/Hacim (örn: 16 oz, 500ml)",
+  "currency": "USD",
+  "prices_by_store": [
+    {
+      "store": "Mağaza Adı",
+      "price": 0.00,
+      "note": "Kısa not (örn: Online fiyat, İndirimli, Regular price)"
+    }
+  ],
+  "cheapest_option": {
+    "store": "En ucuz mağaza adı",
+    "price": 0.00,
+    "availability": "In Stock / Limited / Online Only"
+  },
+  "average_price": 0.00
+}`;
+
+    const requestData = {
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: 'image/jpeg',
+                data: base64Image,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        response_mime_type: 'application/json', // JSON mode
+        temperature: 0.2, // Low temperature for accurate results
+      },
+    };
+
+    const requestConfig = {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 45000, // 45 seconds for product + price lookup
+    };
+
+    // Try gemini-1.5-flash first, then fallback
+    const modelsToTry = [
+      { name: 'gemini-1.5-flash', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-1.5-pro', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-2.0-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}` },
+    ];
+
+    let response = null;
+    for (const model of modelsToTry) {
+      try {
+        console.log(`  🔄 Trying ${model.name} for product scanning...`);
+        response = await axios.post(model.url, requestData, requestConfig);
+        console.log(`  ✅ Successfully using ${model.name}`);
+        break;
+      } catch (error) {
+        if (error.response?.status === 404 || error.response?.status === 400) {
+          console.log(`  ❌ ${model.name} not available, trying next...`);
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (!response) {
+      console.log('⚠️ All Gemini models failed for product scanning');
+      return null;
+    }
+
+    const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      console.log('⚠️ Gemini returned empty response');
+      return null;
+    }
+
+    console.log('📄 Gemini product response:', text.substring(0, 500));
+
+    // Parse JSON response
+    try {
+      const result = JSON.parse(text);
+      
+      if (result.product_name) {
+        console.log(`✅ Gemini identified product: ${result.product_name}`);
+        console.log(`   Brand: ${result.brand || 'Unknown'}`);
+        console.log(`   Size: ${result.size || 'Unknown'}`);
+        console.log(`   Cheapest: ${result.cheapest_option?.store} @ $${result.cheapest_option?.price}`);
+        
+        // Format response to match our expected structure
+        return {
+          product: {
+            name: result.product_name,
+            brand: result.brand || null,
+            variant: result.variant || null,
+            size: result.size || null,
+            fullName: result.product_name,
+          },
+          priceComparison: {
+            currency: result.currency || 'USD',
+            prices: result.prices_by_store || [],
+            cheapest: result.cheapest_option || null,
+            averagePrice: result.average_price || null,
+          },
+          source: 'gemini',
+        };
+      }
+    } catch (parseError) {
+      console.error('❌ Failed to parse Gemini JSON response:', parseError.message);
+      // Try to extract JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const result = JSON.parse(jsonMatch[0]);
+          if (result.product_name) {
+            return {
+              product: {
+                name: result.product_name,
+                brand: result.brand || null,
+                variant: result.variant || null,
+                size: result.size || null,
+                fullName: result.product_name,
+              },
+              priceComparison: {
+                currency: result.currency || 'USD',
+                prices: result.prices_by_store || [],
+                cheapest: result.cheapest_option || null,
+                averagePrice: result.average_price || null,
+              },
+              source: 'gemini',
+            };
+          }
+        } catch (e) {
+          console.error('❌ Secondary JSON parse also failed');
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error in Gemini product scanning:', {
+      status: error.response?.status,
+      message: error.message,
+      data: error.response?.data,
+    });
+    return null;
+  }
+};
+
 // AI-powered product recognition using Google Gemini Vision API
 const detectProductWithAI = async (imageBuffer) => {
   if (useGeminiVision && geminiApiKey) {
@@ -1639,5 +1815,6 @@ module.exports = {
   detectProductWithAI,
   parseReceiptText,
   scanReceiptWithGemini,
+  scanProductWithGemini,
 };
 
