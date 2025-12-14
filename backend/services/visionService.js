@@ -796,38 +796,47 @@ KRİTİK KURALLAR:
       timeout: 45000, // 45 seconds for product + price lookup
     };
 
-    // Try multiple Gemini models (v1 API works better with most API keys)
+    // Try multiple Gemini models - use v1beta for better compatibility with JSON mode
     const modelsToTry = [
-      { name: 'gemini-2.0-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}` },
-      { name: 'gemini-1.5-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}` },
-      { name: 'gemini-1.5-flash-latest', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}` },
-      { name: 'gemini-2.5-flash', url: `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}` },
+      { name: 'gemini-1.5-flash', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, supportsJsonMode: true },
+      { name: 'gemini-1.5-pro', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}`, supportsJsonMode: true },
+      { name: 'gemini-2.0-flash', url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, supportsJsonMode: false },
     ];
 
     let response = null;
     let usedModel = null;
     let usedJsonMode = false;
     
-    // First try with JSON mode
+    // Try models - use JSON mode only if supported
     for (const model of modelsToTry) {
       try {
-        console.log(`  🔄 Trying ${model.name} for product scanning (JSON mode)...`);
-        response = await axios.post(model.url, requestData, requestConfig);
-        console.log(`  ✅ Successfully using ${model.name} with JSON mode`);
+        // Skip JSON mode for models that don't support it
+        const requestDataToUse = model.supportsJsonMode ? requestData : (() => {
+          const { generationConfig, ...rest } = requestData;
+          return rest;
+        })();
+        
+        const modeText = model.supportsJsonMode ? 'JSON mode' : 'text mode';
+        console.log(`  🔄 Trying ${model.name} for product scanning (${modeText})...`);
+        response = await axios.post(model.url, requestDataToUse, requestConfig);
+        console.log(`  ✅ Successfully using ${model.name} with ${modeText}`);
         usedModel = model.name;
-        usedJsonMode = true;
+        usedJsonMode = model.supportsJsonMode;
         break;
       } catch (error) {
         const status = error.response?.status;
         const errorMsg = error.response?.data?.error?.message || error.message;
-        const errorData = error.response?.data?.error;
-        console.log(`  ❌ ${model.name} failed (${status}): ${errorMsg}`);
-        if (errorData) {
-          console.log(`  📋 Error details:`, JSON.stringify(errorData, null, 2));
+        
+        // Skip quota errors (429) - try next model
+        if (status === 429) {
+          console.log(`  ⚠️ ${model.name} quota exceeded, trying next model...`);
+          continue;
         }
         
-        // If JSON mode not supported, try without it
-        if (status === 400 && (errorMsg?.includes('response_mime_type') || errorMsg?.includes('generationConfig'))) {
+        console.log(`  ❌ ${model.name} failed (${status}): ${errorMsg}`);
+        
+        // If JSON mode error and model should support it, try without JSON mode
+        if (status === 400 && model.supportsJsonMode && (errorMsg?.includes('response_mime_type') || errorMsg?.includes('generationConfig'))) {
           console.log(`  🔄 Retrying ${model.name} without JSON mode...`);
           try {
             const requestDataNoJson = { ...requestData };

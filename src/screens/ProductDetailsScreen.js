@@ -9,9 +9,23 @@ const FAVORITES_KEY = '@product_favorites';
 const ProductDetailsScreen = ({ selectedProduct, onNavigate, fadeAnim, onAddToList }) => {
   const { t } = useLanguage();
   const [isFavorite, setIsFavorite] = useState(false);
+  const [imageDimensions, setImageDimensions] = useState({ width: null, height: null });
 
   useEffect(() => {
     checkIfFavorite();
+    // Reset image dimensions when product changes
+    if (selectedProduct?.image) {
+      setImageDimensions({ width: null, height: null });
+      Image.getSize(
+        selectedProduct.image,
+        (width, height) => {
+          setImageDimensions({ width, height });
+        },
+        (error) => {
+          console.log('Error getting image size:', error);
+        }
+      );
+    }
   }, [selectedProduct]);
 
   const checkIfFavorite = async () => {
@@ -209,8 +223,18 @@ const ProductDetailsScreen = ({ selectedProduct, onNavigate, fadeAnim, onAddToLi
             {selectedProduct?.image ? (
               <Image 
                 source={{ uri: selectedProduct.image }} 
-                style={styles.productImage}
-                resizeMode="cover"
+                style={[
+                  styles.productImage,
+                  imageDimensions.width && imageDimensions.height 
+                    ? { 
+                        width: imageDimensions.width > 400 ? 400 : imageDimensions.width,
+                        height: imageDimensions.width > 400 
+                          ? (imageDimensions.height * 400 / imageDimensions.width)
+                          : imageDimensions.height
+                      }
+                    : { width: '100%', minHeight: 200 }
+                ]}
+                resizeMode="contain"
               />
             ) : (
               <Text style={styles.productImagePlaceholder}>📷</Text>
@@ -444,8 +468,6 @@ const styles = StyleSheet.create({
   },
   productImageContainer: {
     width: '100%',
-    minHeight: 300,
-    maxHeight: 500,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.lg,
@@ -454,9 +476,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundLight,
   },
   productImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
+    resizeMode: 'contain', // Keep original size, don't zoom
   },
   productImagePlaceholder: {
     fontSize: 100,
